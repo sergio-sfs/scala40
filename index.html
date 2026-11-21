@@ -141,7 +141,8 @@ function evalMeld(cards){return evalAll(cards)[0]||null;}
 function subsets(av){const out=[],n=av.length;for(let m=1;m<(1<<n);m++){const s=[];for(let i=0;i<n;i++)if(m&(1<<i))s.push(av[i]);if(s.length>=2)out.push(s);}return out;}
 
 // Trova la miglior combinazione di gruppi disgiunti nella mano (per i bot)
-function solve(hand,must){
+function solve(hand,must,cap,opt){
+  cap=cap||150000;
   const cnt=Array.from({length:4},()=>Array(15).fill(0)),inst={},jokers=[];
   for(const c of hand){if(c.j)jokers.push(c);else{cnt[c.s][c.r]++;(inst[c.s+'-'+c.r]=inst[c.s+'-'+c.r]||[]).push(c);}}
   const jn=jokers.length,shapes=[];
@@ -161,17 +162,21 @@ function solve(hand,must){
   }
   const hasMust=sel=>!must||sel.some(sh=>must.j?sh.j>0:sh.items.some(([s,r])=>s===must.s&&r===must.r));
   let best=null,nodes=0;const used=[];
-  (function dfs(i,pts,ju){
-    if(++nodes>150000)return;
-    if(used.length&&(!best||pts>best.pts)&&hasMust(used))best={pts,sel:used.slice()};
+  (function dfs(i,pts,ju,cc){
+    if(++nodes>cap)return;
+    if(used.length&&hasMust(used)&&(!opt||(pts>=(opt.minPts||0)&&cc<=(opt.maxCards||99)))){
+      const better=!best||(opt&&opt.cards?(cc>best.cc||(cc===best.cc&&pts>best.pts)):pts>best.pts);
+      if(better)best={pts,cc,sel:used.slice()};
+    }
     for(let k=i;k<shapes.length;k++){
       const sh=shapes[k];if(ju+sh.j>jn)continue;
       let ok=true;
       for(const[s,r]of sh.items){cnt[s][r]--;if(cnt[s][r]<0)ok=false;}
-      if(ok){used.push(sh);dfs(k,pts+sh.pts,ju+sh.j);used.pop();}
+      const n=sh.items.length+sh.j;
+      if(ok&&!(opt&&cc+n>(opt.maxCards||99))){used.push(sh);dfs(k,pts+sh.pts,ju+sh.j,cc+n);used.pop();}
       for(const[s,r]of sh.items)cnt[s][r]++;
     }
-  })(0,0,0);
+  })(0,0,0,0);
   if(!best)return null;
   const pool={};for(const k in inst)pool[k]=inst[k].slice();const jp=jokers.slice();
   const melds=best.sel.map(sh=>{const cs_=sh.items.map(([s,r])=>pool[s+'-'+r].pop());for(let q=0;q<sh.j;q++)cs_.push(jp.pop());return cs_;});
@@ -272,12 +277,12 @@ function tryAttach(card){
   }
   return null;
 }
-// Livelli: take=prende lo scarto utile, lay=cala quando puo', attach=attacca, rnd=scarti a caso,
-// swap=scambia i jolly dal tavolo, avoid=evita di scartare carte utili agli avversari
-const LV=[{take:.4,lay:.65,attach:.5,rnd:.5,swap:false,avoid:false},{take:1,lay:1,attach:1,rnd:0,swap:false,avoid:false},{take:1,lay:1,attach:1,rnd:0,swap:true,avoid:false},{take:1,lay:1,attach:1,rnd:0,swap:true,avoid:true}];
+// Livelli: take/lay/attach = probabilita' di prendere lo scarto utile / calare / attaccare, rnd = probabilita' di scarto a caso,
+// swap = scambia i jolly dal tavolo, avoid = evita di scartare carte utili agli avversari, deepM = cala il massimo numero di carte
+const LV=[{take:.3,lay:.55,attach:.4,rnd:.65,swap:false,avoid:false,deepM:false},{take:.55,lay:.75,attach:.6,rnd:.4,swap:false,avoid:false,deepM:false},{take:.75,lay:.9,attach:.75,rnd:.25,swap:true,avoid:false,deepM:false},{take:1,lay:1,attach:1,rnd:0,swap:true,avoid:true,deepM:true}];
 const dangerFor=i=>c=>G.taken.some(t=>t.by!==i&&!t.card.j&&(t.card.r===c.r||(t.card.s===c.s&&Math.abs(t.card.r-c.r)<=2)));
 async function botTurn(i,g){
-  const P=G.players[i],LVL=LV[OPT.diff];const acts=[];
+  const P=G.players[i],LVL=LV[P.lvl!==undefined?P.lvl:OPT.diff];const acts=[];
   const top=G.discard[G.discard.length-1];
   let took=false,must=null;
   if(top){
@@ -301,7 +306,7 @@ async function botTurn(i,g){
     }
     if(sw){say(P.name+' prende '+(sw===1?'un jolly':sw+' jolly')+' dal tavolo.');render();await sleep(900);if(G!==g)return;}
   }
-  const sol=solve(P.hand,took?must:null);
+  const sol=LVL.deepM?solve(P.hand,took?must:null,0,{cards:true,minPts:P.opened?0:40,maxCards:P.hand.length-1}):solve(P.hand,took?must:null);
   if(sol&&(P.opened||sol.pts>=40)&&(took||Math.random()<LVL.lay)){
     let melds=sol.melds.slice();
     if(melds.reduce((a,m)=>a+m.length,0)>=P.hand.length){
@@ -341,7 +346,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.4.0',BUILD='21/11/2026';
+const VERSION='1.5.0',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:0,rule:0,game:2,diff:1,spread:false};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=3)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;}catch(e){}
@@ -360,10 +365,10 @@ const mini=x=>cardHTML(x.c,{sm:1,p:x.p,su:x.su,noid:1});
 function startHTML(){
   return`<div class="ov"><div class="box"><h2>🃏 Scala 40</h2><p>Quanti avversari?</p>
   <button data-act="start" data-n="1">1</button><button data-act="start" data-n="2">2</button><button data-act="start" data-n="3">3</button>
-  ${optsHTML()}<p><button class="sec" data-act="rules">Regole</button></p>${verHTML()}</div></div>`;
+  ${optsHTML()}<p><button class="sec" data-act="rules">Guida e regole</button></p>${verHTML()}</div></div>`;
 }
 function menuHTML(){
-  if(UI.rules)return`<div class="ov"><div class="box"><h2>Regole</h2><ul>
+  if(UI.rules)return`<div class="ov"><div class="box"><h2>Guida e regole</h2><ul>
   <li>2 mazzi + 4 jolly, 13 carte a testa. Turno: pesca (mazzo o scarto) → cala/attacca → scarta.</li>
   <li><b>Tris</b>: stesso valore, semi diversi (3–4). <b>Scala</b>: ≥3 carte consecutive dello stesso seme; asso basso (A-2-3) o alto (Q-K-A). Max 1 jolly per combinazione.</li>
   <li><b>Apertura</b>: le prime combinazioni devono valere ≥40 punti insieme (A=11, figure=10, jolly = carta sostituita).</li>
@@ -371,6 +376,14 @@ function menuHTML(){
   <li>Dopo l'apertura puoi attaccare carte alle combinazioni sul tavolo, anche degli altri: seleziona le carte e tocca la combinazione. Per prendere un jolly dal tavolo seleziona la carta che lo sostituisce e tocca la combinazione.</li>
   <li>Non puoi scartare una carta che si attacca a una combinazione sul tavolo (salvo l'ultima carta, per chiudere).</li>
   <li>Si chiude scartando l'ultima carta (tienine sempre una da scartare). Gli altri segnano le carte in mano (jolly 25, A 11, figure 10); chi non ha aperto 100. Si gioca una mano (secca) oppure fino al punteggio scelto nel menu: chi lo raggiunge è eliminato.</li></ul>
+  <h3 style="margin:12px 0 2px">Livelli di difficoltà (🤖 nel menu)</h3><ul>
+  <li><b>Facile</b>: gioca distratto; cala e attacca solo a volte e scarta spesso a caso.</li>
+  <li><b>Normale</b>: gioca in modo corretto ma sbaglia ogni tanto; non scambia i jolly.</li>
+  <li><b>Difficile</b>: sbaglia poco e prende i jolly dal tavolo.</li>
+  <li><b>Esperto</b>: non sbaglia occasioni, cala il massimo di carte possibile, scambia i jolly ed evita di scartare ciò che serve agli avversari.</li></ul>
+  <h3 style="margin:12px 0 2px">Comandi</h3><ul>
+  <li>Trascina le carte per riordinarle (se ne selezioni più d'una si spostano insieme); ⇅ le ordina; ↔ distanzia le carte sul tavolo.</li>
+  <li>Con la regola classica, se hai preso lo scarto e non ti serve, ↩ lo rimette a posto.</li></ul>
   <button data-act="rules">Chiudi</button></div></div>`;
 }
 function roundHTML(){
@@ -414,7 +427,7 @@ function render(){
   if(UI.choose)h+=chooseHTML();
   if(UI.pick2)h+=pick2HTML();
   if(UI.rules)h+=menuHTML();
-  else if(UI.menu)h+=`<div class="ov"><div class="box"><h2>Menu</h2>${optsHTML()}<button data-act="newgame">Nuova partita</button><button class="sec" data-act="rules">Regole</button><button class="sec" data-act="menu">Chiudi</button>${verHTML()}</div></div>`;
+  else if(UI.menu)h+=`<div class="ov"><div class="box"><h2>Menu</h2>${optsHTML()}<button data-act="newgame">Nuova partita</button><button class="sec" data-act="rules">Guida e regole</button><button class="sec" data-act="menu">Chiudi</button>${verHTML()}</div></div>`;
   app.className='s'+OPT.size;
   app.innerHTML=h;
   const t2=document.getElementById('tbl');if(t2)t2.scrollTop=st;
