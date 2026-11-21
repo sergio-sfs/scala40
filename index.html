@@ -358,7 +358,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.10.2',BUILD='21/11/2026';
+const VERSION='1.10.3',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false,coach:false};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;OPT.coach=o.coach===true;}catch(e){}
@@ -677,6 +677,7 @@ const AK='7ae177d6eb88acd02dc16f052db8761b31f65684701392b1f91cc7864b1c71a6',PFX=
 const getKey=()=>{try{return localStorage.getItem('scala40key')||'';}catch(e){return'';}};
 const setKey=k=>{try{localStorage.setItem('scala40key',k);}catch(e){}};
 async function okKey(k){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(k).trim().toLowerCase()));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')===AK;}catch(e){return false;}}
+const PEERCFG={config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:['turn:eu-0.turn.peerjs.com:3478','turn:us-0.turn.peerjs.com:3478'],username:'peerjs',credential:'peerjsp'},{urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:80?transport=tcp','turn:openrelay.metered.ca:443','turns:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}]}};
 const PEERJS='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js',CODEC='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const getNick=()=>{try{return localStorage.getItem('scala40nick')||'';}catch(e){return'';}};
 const setNick=n=>{try{localStorage.setItem('scala40nick',n);}catch(e){}};
@@ -704,7 +705,7 @@ function onHost(nick){
 }
 function mkPeer(reuse,tries){
   const code=reuse||Array.from({length:4},()=>CODEC[Math.random()*CODEC.length|0]).join('');
-  const p=new Peer(PFX+code);ON.peer=p;
+  const p=new Peer(PFX+code,PEERCFG);ON.peer=p;
   p.on('open',()=>{if(!ON||ON.peer!==p)return;ON.code=code;if(ON.state==='starting'){ON.state='lobby';render();}});
   p.on('disconnected',()=>{if(ON&&ON.peer===p&&!p.destroyed)setTimeout(()=>{try{p.reconnect();}catch(x){}},1500);});
   p.on('error',e=>{if(!ON||ON.peer!==p)return;
@@ -800,11 +801,11 @@ function onJoin(nick,code){
   loadPeer(ok=>{
     if(!ON||ON.role!=='client')return;
     if(!ok){onFail('Serve la connessione internet.');return;}
-    const p=new Peer();ON.peer=p;
+    const p=new Peer(undefined,PEERCFG);ON.peer=p;
     p.on('open',()=>{
       if(!ON||ON.peer!==p)return;
       const c=p.connect(PFX+code,{reliable:true,serialization:'json'});ON.conn=c;
-      const to=setTimeout(()=>onFail('Stanza non trovata o organizzatore non raggiungibile.'),15000);
+      const to=setTimeout(()=>onFail('Non riesco a collegarmi. Controlla codice e parola; con la rete mobile (senza Wi-Fi) il collegamento diretto può essere bloccato dall\'operatore: prova con lo stesso Wi-Fi.'),15000);
       c.on('open',()=>{clearTimeout(to);c.send({t:'hello',nick});ON.state='waiting';render();});
       c.on('data',m=>{if(ON&&ON.conn===c&&!c.dead){ON.lastRx=Date.now();clientMsg(m);}});
       c.on('close',()=>{clearTimeout(to);if(ON&&ON.conn===c&&!c.dead)clientDown();});
@@ -823,7 +824,7 @@ function tryRc(){
   if(!ON||ON.state!=='reconnecting')return;
   if(Date.now()-ON.since>900000){onFail('Connessione persa.');return;}
   if(ON.conn)ON.conn.dead=true;ON.conn=null;try{ON.peer&&ON.peer.destroy();}catch(e){}
-  const p=new Peer();ON.peer=p;
+  const p=new Peer(undefined,PEERCFG);ON.peer=p;
   p.on('open',()=>{
     if(!ON||ON.peer!==p)return;
     const c=p.connect(PFX+ON.code,{reliable:true,serialization:'json'});ON.conn=c;
