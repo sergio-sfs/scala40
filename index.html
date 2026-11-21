@@ -351,7 +351,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.8.2',BUILD='21/11/2026';
+const VERSION='1.9.0',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;}catch(e){}
@@ -387,7 +387,7 @@ function menuHTML(){
   <li><b>Difficile</b>: sbaglia poco e prende i jolly dal tavolo.</li>
   <li><b>Esperto</b>: non sbaglia occasioni, cala il massimo di carte possibile, scambia i jolly ed evita di scartare ciò che serve agli avversari.</li></ul>
   <h3 style="margin:12px 0 2px">Online con amici</h3><ul>
-  <li>Dal menu iniziale: 🌐 Gioca online → Crea stanza, poi invia il link. Gli amici lo aprono, scrivono il nome ed entrano. Chi crea la stanza decide quando avviare e gestisce i passaggi di mano; i posti liberi li occupa il computer. Tutti devono tenere l'app aperta: se qualcuno esce, il computer prende il suo posto.</li></ul>
+  <li>Serve la parola d'accesso (te la dà chi ti invita). Dal menu iniziale: 🌐 Gioca online → Crea stanza, poi invia il link. Gli amici lo aprono, scrivono il nome ed entrano. Chi crea la stanza decide quando avviare e gestisce i passaggi di mano; i posti liberi li occupa il computer. Tutti devono tenere l'app aperta: se qualcuno esce, il computer prende il suo posto.</li></ul>
   <h3 style="margin:12px 0 2px">Comandi</h3><ul>
   <li>Trascina le carte per riordinarle (se ne selezioni più d'una si spostano insieme); ⇅ le ordina; ↔ distanzia le carte sul tavolo.</li>
   <li>Con la regola classica, se hai preso lo scarto e non ti serve, ↩ lo rimette a posto.</li></ul>
@@ -627,6 +627,10 @@ function endDrag(){
 window.addEventListener('pointerup',endDrag);
 window.addEventListener('pointercancel',endDrag);
 /* ===== Online (WebRTC, PeerJS) ===== */
+const AK='7ae177d6eb88acd02dc16f052db8761b31f65684701392b1f91cc7864b1c71a6',PFX='scala40-'+AK.slice(0,6)+'-';
+const getKey=()=>{try{return localStorage.getItem('scala40key')||'';}catch(e){return'';}};
+const setKey=k=>{try{localStorage.setItem('scala40key',k);}catch(e){}};
+async function okKey(k){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(k).trim().toLowerCase()));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')===AK;}catch(e){return false;}}
 const PEERJS='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js',CODEC='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const getNick=()=>{try{return localStorage.getItem('scala40nick')||'';}catch(e){return'';}};
 const setNick=n=>{try{localStorage.setItem('scala40nick',n);}catch(e){}};
@@ -636,7 +640,7 @@ const inviteUrl=()=>location.origin+location.pathname+'?stanza='+ON.code;
 function onlineHTML(){
   const o=ON,players=(o.role==='host'?o.nicks:o.players||[]).map(esc).join(', ');
   let b='';
-  if(o.state==='menu')b=`<h2>🌐 Gioca online</h2><p>Il tuo nome</p><input id="nick" maxlength="12" value="${esc(o.nick||'')}" placeholder="Nome"><p><button data-act="ocreate">Crea stanza</button></p><p style="margin-top:14px">Hai un codice di invito?</p><input id="code" maxlength="4" value="${esc(o.code||'')}" placeholder="CODICE" style="text-transform:uppercase"><p><button data-act="ojoin">Entra nella stanza</button></p>${o.err?`<p style="color:#ffab91">${esc(o.err)}</p>`:''}<button class="sec" data-act="oback">Indietro</button>`;
+  if(o.state==='menu')b=`<h2>🌐 Gioca online</h2><p>Parola d'accesso (te la dà chi ti invita)</p><input id="key" type="password" value="${esc(o.key||'')}" placeholder="Parola"><p>Il tuo nome</p><input id="nick" maxlength="12" value="${esc(o.nick||'')}" placeholder="Nome"><p><button data-act="ocreate">Crea stanza</button></p><p style="margin-top:14px">Hai un codice di invito?</p><input id="code" maxlength="4" value="${esc(o.code||'')}" placeholder="CODICE" style="text-transform:uppercase"><p><button data-act="ojoin">Entra nella stanza</button></p>${o.err?`<p style="color:#ffab91">${esc(o.err)}</p>`:''}<button class="sec" data-act="oback">Indietro</button>`;
   else if(o.state==='starting'||o.state==='connecting')b=`<h2>🌐 Connessione…</h2><p>Un attimo.</p><button class="sec" data-act="oback">Annulla</button>`;
   else if(o.state==='lobby')b=`<h2>Stanza <b>${o.code}</b></h2><p>Giocatori (${o.nicks.length}/${o.seats}): <b>${players}</b></p><p>Posti totali: <button class="sec" data-act="oseats">${o.seats}</button><br><small>I posti liberi li occupa il computer.</small></p><p>Attesa se qualcuno si assenta: <button class="sec" data-act="ograce">${o.grace} min</button></p><p><button data-act="oshare">📨 Invita (WhatsApp / condividi)</button></p><p><button data-act="ostart" ${o.nicks.length>=2?'':'disabled'}>Avvia partita</button></p>${o.nicks.length<2?'<small>Aspetta che entri almeno un amico.</small>':''}<p><button class="sec" data-act="oback">Annulla</button></p>`;
   else if(o.state==='waiting')b=`<h2>Stanza <b>${esc(o.code)}</b></h2><p>Giocatori: <b>${players}</b></p><p>In attesa che l'organizzatore avvii la partita…</p><button class="sec" data-act="oback">Esci</button>`;
@@ -654,7 +658,7 @@ function onHost(nick){
 }
 function mkPeer(reuse,tries){
   const code=reuse||Array.from({length:4},()=>CODEC[Math.random()*CODEC.length|0]).join('');
-  const p=new Peer('scala40-'+code);ON.peer=p;
+  const p=new Peer(PFX+code);ON.peer=p;
   p.on('open',()=>{if(!ON||ON.peer!==p)return;ON.code=code;if(ON.state==='starting'){ON.state='lobby';render();}});
   p.on('disconnected',()=>{if(ON&&ON.peer===p&&!p.destroyed)setTimeout(()=>{try{p.reconnect();}catch(x){}},1500);});
   p.on('error',e=>{if(!ON||ON.peer!==p)return;
@@ -753,7 +757,7 @@ function onJoin(nick,code){
     const p=new Peer();ON.peer=p;
     p.on('open',()=>{
       if(!ON||ON.peer!==p)return;
-      const c=p.connect('scala40-'+code,{reliable:true,serialization:'json'});ON.conn=c;
+      const c=p.connect(PFX+code,{reliable:true,serialization:'json'});ON.conn=c;
       const to=setTimeout(()=>onFail('Stanza non trovata o organizzatore non raggiungibile.'),15000);
       c.on('open',()=>{clearTimeout(to);c.send({t:'hello',nick});ON.state='waiting';render();});
       c.on('data',m=>{if(ON&&ON.conn===c&&!c.dead){ON.lastRx=Date.now();clientMsg(m);}});
@@ -776,7 +780,7 @@ function tryRc(){
   const p=new Peer();ON.peer=p;
   p.on('open',()=>{
     if(!ON||ON.peer!==p)return;
-    const c=p.connect('scala40-'+ON.code,{reliable:true,serialization:'json'});ON.conn=c;
+    const c=p.connect(PFX+ON.code,{reliable:true,serialization:'json'});ON.conn=c;
     c.on('open',()=>{c.send({t:'hello',nick:ON.nick});});
     c.on('data',m=>{if(ON&&ON.conn===c&&!c.dead){ON.lastRx=Date.now();clientMsg(m);}});
     c.on('close',()=>{if(ON&&ON.conn===c&&!c.dead)clientDown();});
@@ -826,12 +830,12 @@ function netWake(){
   if(ON.role==='client'&&ON.state==='reconnecting')tryRc();
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)netWake();});
-function onAct(a){
+async function onAct(a){
   const val=id=>{const e=document.getElementById(id);return e?e.value.trim():'';};
-  if(a==='online'){ON={state:'menu',nick:getNick(),code:'',err:''};render();return;}
+  if(a==='online'){ON={state:'menu',nick:getNick(),key:getKey(),code:'',err:''};render();return;}
   if(a==='oback'){leaveOnline();render();return;}
-  if(a==='ocreate'){const n=val('nick');if(!n){ON.err='Scrivi il tuo nome.';ON.nick='';render();return;}setNick(n);onHost(n);return;}
-  if(a==='ojoin'){const n=val('nick'),c=val('code').toUpperCase();ON.nick=n;ON.code=c;if(!n||c.length<4){ON.err='Scrivi nome e codice (4 caratteri).';render();return;}setNick(n);onJoin(n,c);return;}
+  if(a==='ocreate'){const n=val('nick'),k=val('key');ON.key=k;ON.nick=n;if(!n){ON.err='Scrivi il tuo nome.';render();return;}if(!(await okKey(k))){ON.err='Parola d\'accesso errata.';render();return;}setNick(n);setKey(k);onHost(n);return;}
+  if(a==='ojoin'){const n=val('nick'),c=val('code').toUpperCase(),k=val('key');ON.nick=n;ON.code=c;ON.key=k;if(!n||c.length<4){ON.err='Scrivi nome e codice (4 caratteri).';render();return;}if(!(await okKey(k))){ON.err='Parola d\'accesso errata.';render();return;}setNick(n);setKey(k);onJoin(n,c);return;}
   if(a==='oseats'){ON.seats=ON.seats>=4?Math.max(2,ON.nicks.length):ON.seats+1;if(ON.seats<ON.nicks.length)ON.seats=ON.nicks.length;render();return;}
   if(a==='ograce'){ON.grace={1:3,3:5,5:10,10:1}[ON.grace]||3;render();return;}
   if(a==='ostart'){onStart();return;}
@@ -839,7 +843,7 @@ function onAct(a){
     if(navigator.share){navigator.share({title:'Scala 40',text:txt}).catch(()=>{});}else window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');return;}
 }
 
-try{const inv=new URLSearchParams(location.search).get('stanza');if(inv){ON={state:'menu',nick:getNick(),code:inv.toUpperCase().slice(0,4),err:''};}}catch(e){}
+try{const inv=new URLSearchParams(location.search).get('stanza');if(inv){ON={state:'menu',nick:getNick(),key:getKey(),code:inv.toUpperCase().slice(0,4),err:''};}}catch(e){}
 render();
 let UPD=false;function tryUpd(){if(UPD&&!G){UPD=false;location.reload();return true;}return false;}
 if('serviceWorker' in navigator){const had=!!navigator.serviceWorker.controller;window.addEventListener('load',()=>{try{navigator.serviceWorker.register('sw.js').catch(()=>{});navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had)return;UPD=true;if(!tryUpd())render();});}catch(e){}});}
