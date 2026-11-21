@@ -1,12 +1,15 @@
-const CACHE='scala40-v10';
+const CACHE='scala40-v11';
 const FILES=['./','index.html','manifest.webmanifest','icon-180.png','icon-192.png','icon-512.png'];
-self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()));});
+self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>Promise.all(FILES.map(f=>fetch(f,{cache:'reload'}).then(r=>c.put(f,r))))).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))).then(()=>self.clients.claim()));});
-// Cache subito, aggiorna in background (le novità appaiono alla riapertura successiva)
+// Prima la rete (max 3 s), se offline o lenta usa la copia salvata
 self.addEventListener('fetch',e=>{
   if(e.request.method!=='GET')return;
-  e.respondWith(caches.match(e.request,{ignoreSearch:true}).then(hit=>{
-    const net=fetch(e.request).then(r=>{if(r&&r.ok&&new URL(e.request.url).origin===location.origin){const cp=r.clone();caches.open(CACHE).then(c=>c.put(e.request,cp));}return r;}).catch(()=>hit);
-    return hit||net;
-  }));
+  e.respondWith((async()=>{
+    const c=await caches.open(CACHE);
+    const hit=await c.match(e.request,{ignoreSearch:true});
+    const net=fetch(e.request,{cache:'no-cache'}).then(r=>{if(r&&r.ok&&new URL(e.request.url).origin===location.origin)c.put(e.request,r.clone());return r;});
+    if(!hit)return net;
+    return Promise.race([net.catch(()=>hit),new Promise(res=>setTimeout(()=>res(hit),3000))]);
+  })());
 });
