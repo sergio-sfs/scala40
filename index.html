@@ -24,6 +24,9 @@ html,body{margin:0;height:100%;overscroll-behavior:none;-webkit-user-select:none
 .opp.act{border-color:#ffd54f}.opp.out{opacity:.4}
 .opp small{opacity:.85;font-size:calc(var(--tx)*.9)}
 .pend small{font-size:calc(var(--tx)*.9)}
+.me{margin:0 8px;background:#0000003a;border-radius:10px;padding:5px 8px;font-size:var(--tx);text-align:center;border:2px solid transparent}
+.me small{opacity:.85;font-size:calc(var(--tx)*.9)}
+.me.act{border-color:#ffd54f}
 #tbl{flex:1;overflow:auto;margin:6px 8px;background:#0a5a3a;border-radius:12px;padding:6px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px;min-height:80px}
 .empty{opacity:.6;font-size:var(--tx);margin:auto}
 .meld{display:flex;align-items:center;background:#0000002e;border-radius:8px;padding:3px 4px;position:relative;cursor:pointer}
@@ -172,7 +175,8 @@ function solve(hand,must){
   return{melds,pts:best.pts};
 }
 
-function pickDiscard(hand){
+function pickDiscard(hand,danger,rnd){
+  if(rnd&&Math.random()<rnd){const cand=hand.filter(c=>!c.j&&(hand.length<=1||!tryAttach(c)));if(cand.length)return cand[Math.floor(Math.random()*cand.length)];}
   let best=null,bs=1e9;
   for(const c of hand){
     if(c.j)continue;
@@ -183,6 +187,7 @@ function pickDiscard(hand){
       if(d.r===c.r)sc+=d.s!==c.s?3:0.5;
       else if(d.s===c.s){const df=Math.abs(d.r-c.r);if(df===1)sc+=3;else if(df===2)sc+=1.5;else if(df===12)sc+=3;else if(df===11)sc+=1.5;}
     }
+    if(danger&&danger(c))sc+=4;
     sc-=penalty(c)*0.05;
     if(sc<bs){bs=sc;best=c;}
   }
@@ -205,7 +210,7 @@ function startGame(n,allBots){
   newRound();
 }
 function newRound(){
-  G.stock=shuffle(makeDeck());G.discard=[];G.melds=[];G.pending=[];G.sel=new Set();G.mustUse=null;G.newId=null;G.rows=null;G.turns=0;
+  G.stock=shuffle(makeDeck());G.discard=[];G.melds=[];G.pending=[];G.sel=new Set();G.mustUse=null;G.newId=null;G.rows=null;G.turns=0;G.taken=[];
   for(const p of G.players){p.hand=[];p.opened=false;p.inRound=!p.out;}
   for(const p of G.players)if(!p.out)for(let i=0;i<13;i++)p.hand.push(G.stock.pop());
   G.discard.push(G.stock.pop());
@@ -264,19 +269,37 @@ function tryAttach(card){
   }
   return null;
 }
+// Livelli: take=prende lo scarto utile, lay=cala quando puo', attach=attacca, rnd=scarti a caso,
+// swap=scambia i jolly dal tavolo, avoid=evita di scartare carte utili agli avversari
+const LV=[{take:.4,lay:.65,attach:.5,rnd:.5,swap:false,avoid:false},{take:1,lay:1,attach:1,rnd:0,swap:false,avoid:false},{take:1,lay:1,attach:1,rnd:0,swap:true,avoid:false},{take:1,lay:1,attach:1,rnd:0,swap:true,avoid:true}];
+const dangerFor=i=>c=>G.taken.some(t=>t.by!==i&&!t.card.j&&(t.card.r===c.r||(t.card.s===c.s&&Math.abs(t.card.r-c.r)<=2)));
 async function botTurn(i,g){
-  const P=G.players[i];const acts=[];
+  const P=G.players[i],LVL=LV[OPT.diff];const acts=[];
   const top=G.discard[G.discard.length-1];
   let took=false,must=null;
   if(top){
     must=top.j?{j:true}:{s:top.s,r:top.r};
     const sol=solve(P.hand.concat([top]),must);
-    if(sol&&(P.opened||sol.pts>=40)){G.discard.pop();P.hand.push(top);took=true;acts.push('prende '+cs(top)+' dallo scarto');}
+    if(sol&&(P.opened||sol.pts>=40)&&Math.random()<LVL.take){G.discard.pop();G.taken.push({by:i,card:top});P.hand.push(top);took=true;acts.push('prende '+cs(top)+' dallo scarto');}
   }
   if(!took){const c=drawStock();if(!c){endRound(-1);return;}P.hand.push(c);acts.push('pesca dal mazzo');}
   say(P.name+' '+acts[0]+'.');render();await sleep(800);if(G!==g)return;
+  if(P.opened&&LVL.swap){
+    let sw=0,again2=true;
+    while(again2){
+      again2=false;
+      for(let k=0;k<G.melds.length&&!again2;k++){
+        const m=G.melds[k];if(!m.cards.some(x=>x.c.j))continue;
+        for(const c of P.hand){
+          const r=jokerSwap(m,c);
+          if(r){m.cards=r.ev.cards;m.pts=r.ev.pts;P.hand=P.hand.filter(x=>x.id!==c.id);P.hand.push(r.joker);sw++;again2=true;break;}
+        }
+      }
+    }
+    if(sw){say(P.name+' prende '+(sw===1?'un jolly':sw+' jolly')+' dal tavolo.');render();await sleep(900);if(G!==g)return;}
+  }
   const sol=solve(P.hand,took?must:null);
-  if(sol&&(P.opened||sol.pts>=40)){
+  if(sol&&(P.opened||sol.pts>=40)&&(took||Math.random()<LVL.lay)){
     let melds=sol.melds.slice();
     if(melds.reduce((a,m)=>a+m.length,0)>=P.hand.length){
       const k=melds.findIndex(m=>m.length>3);
@@ -299,14 +322,14 @@ async function botTurn(i,g){
       again=false;
       for(const c of P.hand.slice()){
         if(c.j||P.hand.length<=1)continue;
-        const a=tryAttach(c);
+        const a=Math.random()<LVL.attach?tryAttach(c):null;
         if(a){G.melds[a.i].cards=a.ev.cards;G.melds[a.i].pts=a.ev.pts;P.hand=P.hand.filter(x=>x.id!==c.id);att++;again=true;break;}
       }
     }
     if(att){say(P.name+' attacca '+att+(att===1?' carta':' carte')+'.');render();await sleep(800);if(G!==g)return;}
   }
   if(!P.hand.length){say(P.name+' chiude la mano!');endRound(i);return;}
-  const d=pickDiscard(P.hand);
+  const d=pickDiscard(P.hand,LVL.avoid?dangerFor(i):null,LVL.rnd);
   P.hand=P.hand.filter(c=>c.id!==d.id);G.discard.push(d);
   if(!P.hand.length){endRound(i);return;}
   say(P.name+' scarta '+cs(d)+'.');render();await sleep(500);if(G!==g)return;
@@ -315,13 +338,14 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.2.0',BUILD='21/11/2026';
+const VERSION='1.3.0',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
-const OPT={size:0,rule:0,game:2};
-try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=3)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;}catch(e){}
+const OPT={size:0,rule:0,game:2,diff:1};
+try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=3)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;}catch(e){}
 const SIZES=['Normali','Grandi','Molto grandi','Enormi'],RULES=['Classica: devi usarlo subito','Libera dopo l\'apertura','Libera sempre'],GAMES=['Secca (una mano)','A 51 punti','A 101 punti','A 201 punti'];
+const LEVELS=['Facile','Normale','Difficile','Esperto'];
 const verHTML=()=>`<p style="margin:12px 0 0;opacity:.8">Scala 40 · versione <b>${VERSION}</b> (${BUILD})</p>`;
-function optsHTML(){return`<button class="sec opt" data-act="optsize">🔍 Carte: <b>${SIZES[OPT.size]}</b></button><button class="sec opt" data-act="optrule">🃏 Scarto preso: <b>${RULES[OPT.rule]}</b></button><button class="sec opt" data-act="optgame">🎯 Partita: <b>${GAMES[OPT.game]}</b></button>`;}
+function optsHTML(){return`<button class="sec opt" data-act="optsize">🔍 Carte: <b>${SIZES[OPT.size]}</b></button><button class="sec opt" data-act="optrule">🃏 Scarto preso: <b>${RULES[OPT.rule]}</b></button><button class="sec opt" data-act="optgame">🎯 Partita: <b>${GAMES[OPT.game]}</b></button><button class="sec opt" data-act="optdiff">🤖 Difficoltà: <b>${LEVELS[OPT.diff]}</b></button>`;}
 function cardHTML(c,o={}){
   const cl=['card'];if(o.sm)cl.push('sm');
   if(c.j)cl.push('joker');else cl.push('k'+c.s);
@@ -361,7 +385,7 @@ function gameHTML(){
   const pend=G.pending.length?`<div class="pend"><small>Apertura: ${pt}/40 punti</small><div class="row">${G.pending.map(e=>`<div class="meld">${e.cards.map(mini).join('')}</div>`).join('')}</div></div>`:'';
   const hand=me.hand.map(c=>cardHTML(c,{sel:G.sel.has(c.id),isNew:c.id===G.newId,must:c.id===G.mustUse})).join('');
   const can=myTurn&&G.phase==='play';
-  return`<div class="top"><span>Scala 40 · mano ${G.round} · tu ${me.score}${G.target?'/'+G.target:''} pt${me.opened?' ✓':''}</span><button data-act="menu">☰</button></div>
+  return`<div class="top"><span>Scala 40 · mano ${G.round}${G.target?' · a '+G.target:' · secca'}</span><button data-act="menu">☰</button></div>
   <div class="opps">${opps}</div>
   <div id="tbl">${melds}</div>
   <div class="piles">
@@ -369,6 +393,7 @@ function gameHTML(){
    <div class="pile${myTurn&&G.phase==='draw'?' hint':''}" data-act="disc">${top?cardHTML(top,{noid:1}):'<div class="card ghost"></div>'}<small>scarto</small></div>
    <div class="msg${G.err?' err':''}">${G.msg||''}</div>
   </div>${pend}
+  <div class="me${myTurn?' act':''}"><b>Tu</b>${me.opened?' ✓':''}<br><small>${me.hand.length} carte · ${me.score}${G.target?'/'+G.target:''} pt</small></div>
   <div class="hand">${hand}</div>
   <div class="btns">
    <button class="sec" data-act="sort" title="Ordina">⇅</button>
@@ -441,7 +466,7 @@ function act(a,d){
   if(a==='start'){startGame(+d.n);return;}
   if(a==='rules'){UI.rules=!UI.rules;render();return;}
   if(a==='menu'){UI.menu=!UI.menu;render();return;}
-  if(a==='optsize'||a==='optrule'||a==='optgame'){const k=a==='optsize'?'size':a==='optrule'?'rule':'game';OPT[k]=(OPT[k]+1)%(a==='optsize'?4:a==='optrule'?3:4);try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
+  if(a==='optsize'||a==='optrule'||a==='optgame'||a==='optdiff'){const k={optsize:'size',optrule:'rule',optgame:'game',optdiff:'diff'}[a];OPT[k]=(OPT[k]+1)%({size:4,rule:3,game:4,diff:4}[k]);try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='newgame'){G=null;UI.menu=false;render();return;}
   if(a==='next'){newRound();return;}
   if(!G||G.turn!==0||G.phase==='wait'||G.phase==='roundEnd')return;
@@ -455,7 +480,7 @@ function act(a,d){
       if(G.phase!=='draw')return;
       const top=G.discard[G.discard.length-1];if(!top)return;
       const free=OPT.rule===2||(OPT.rule===1&&me.opened);
-      G.discard.pop();me.hand.push(top);G.mustUse=free?null:top.id;G.newId=free?top.id:null;G.phase='play';G.acted=false;
+      G.discard.pop();G.taken.push({by:0,card:top});me.hand.push(top);G.mustUse=free?null:top.id;G.newId=free?top.id:null;G.phase='play';G.acted=false;
       say(free?'Hai preso '+cs(top)+': puoi tenerlo in mano.':'Hai preso '+cs(top)+': usalo in una combinazione, oppure premi ↩ per rimetterlo e pescare dal mazzo.');render();break;}
     case'putback':{
       if(G.phase!=='play'||G.mustUse===null||G.acted||!me.hand.some(c=>c.id===G.mustUse)){toast('Non puoi più rimetterlo a posto.');return;}
