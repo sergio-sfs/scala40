@@ -351,7 +351,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.8.1',BUILD='21/11/2026';
+const VERSION='1.8.2',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;}catch(e){}
@@ -504,7 +504,7 @@ function act(a,d){
   if(a==='menu'){UI.menu=!UI.menu;render();return;}
   if(a==='optsize'||a==='optrule'||a==='optgame'||a==='optdiff'){const k={optsize:'size',optrule:'rule',optgame:'game',optdiff:'diff'}[a];OPT[k]=(OPT[k]+1)%({size:5,rule:3,game:4,diff:4}[k]);try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='spread'){OPT.spread=!OPT.spread;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
-  if(/^(online|oback|ocreate|ojoin|oseats|ostart|oshare)$/.test(a)){onAct(a);return;}
+  if(/^(online|oback|ocreate|ojoin|oseats|ograce|ostart|oshare)$/.test(a)){onAct(a);return;}
   if(a==='newgame'){if(ON)leaveOnline();G=null;UI.menu=false;if(tryUpd())return;render();return;}
   if(a==='exit'){if(ON)leaveOnline();G=null;UI.menu=false;if(tryUpd())return;render();return;}
   if(a==='next'){if(ON&&ON.role==='client')return;newRound();return;}
@@ -638,7 +638,7 @@ function onlineHTML(){
   let b='';
   if(o.state==='menu')b=`<h2>🌐 Gioca online</h2><p>Il tuo nome</p><input id="nick" maxlength="12" value="${esc(o.nick||'')}" placeholder="Nome"><p><button data-act="ocreate">Crea stanza</button></p><p style="margin-top:14px">Hai un codice di invito?</p><input id="code" maxlength="4" value="${esc(o.code||'')}" placeholder="CODICE" style="text-transform:uppercase"><p><button data-act="ojoin">Entra nella stanza</button></p>${o.err?`<p style="color:#ffab91">${esc(o.err)}</p>`:''}<button class="sec" data-act="oback">Indietro</button>`;
   else if(o.state==='starting'||o.state==='connecting')b=`<h2>🌐 Connessione…</h2><p>Un attimo.</p><button class="sec" data-act="oback">Annulla</button>`;
-  else if(o.state==='lobby')b=`<h2>Stanza <b>${o.code}</b></h2><p>Giocatori (${o.nicks.length}/${o.seats}): <b>${players}</b></p><p>Posti totali: <button class="sec" data-act="oseats">${o.seats}</button><br><small>I posti liberi li occupa il computer.</small></p><p><button data-act="oshare">📨 Invita (WhatsApp / condividi)</button></p><p><button data-act="ostart" ${o.nicks.length>=2?'':'disabled'}>Avvia partita</button></p>${o.nicks.length<2?'<small>Aspetta che entri almeno un amico.</small>':''}<p><button class="sec" data-act="oback">Annulla</button></p>`;
+  else if(o.state==='lobby')b=`<h2>Stanza <b>${o.code}</b></h2><p>Giocatori (${o.nicks.length}/${o.seats}): <b>${players}</b></p><p>Posti totali: <button class="sec" data-act="oseats">${o.seats}</button><br><small>I posti liberi li occupa il computer.</small></p><p>Attesa se qualcuno si assenta: <button class="sec" data-act="ograce">${o.grace} min</button></p><p><button data-act="oshare">📨 Invita (WhatsApp / condividi)</button></p><p><button data-act="ostart" ${o.nicks.length>=2?'':'disabled'}>Avvia partita</button></p>${o.nicks.length<2?'<small>Aspetta che entri almeno un amico.</small>':''}<p><button class="sec" data-act="oback">Annulla</button></p>`;
   else if(o.state==='waiting')b=`<h2>Stanza <b>${esc(o.code)}</b></h2><p>Giocatori: <b>${players}</b></p><p>In attesa che l'organizzatore avvii la partita…</p><button class="sec" data-act="oback">Esci</button>`;
   else b=`<h2>🌐 Online</h2><p style="color:#ffab91">${esc(o.err||'Connessione chiusa.')}</p><button data-act="oback">OK</button>`;
   return`<div class="ov"><div class="box">${b}</div></div>`;
@@ -648,7 +648,7 @@ function onFail(m){if(!ON)return;ON.err=m;ON.state=(ON.state==='playing'||ON.sta
 /* --- host --- */
 function onHost(nick){
   setTimeout(wake,0);
-  ON={role:'host',state:'starting',nick,seats:3,conns:{},nicks:[nick],err:'',code:''};render();
+  ON={role:'host',state:'starting',nick,seats:3,grace:3,conns:{},nicks:[nick],err:'',code:''};render();
   ON.pt=setInterval(()=>{if(!ON||ON.role!=='host')return;const now=Date.now();const cs=G?G.players.filter(p=>p.remote&&p.conn).map(p=>p.conn):Object.values(ON.conns);cs.forEach(c=>{if(c.last&&now-c.last>22000){try{c.close();}catch(e){}hostLeft(c);}});},5000);
   loadPeer(ok=>{if(!ON)return;if(!ok){onFail('Serve la connessione internet.');return;}mkPeer();});
 }
@@ -698,9 +698,9 @@ function hostLeft(c){
 }
 function awayTurn(k){
   const p=G.players[k];G.phase='wait';ON.snap=snapOf();ON.snapSeat=k;
-  say(p.name+' è assente: lo aspetto un minuto…');render();
+  say(p.name+' è assente: lo aspetto '+ON.grace+' min…');render();
   ON.graceT=ON.graceT||{};clearTimeout(ON.graceT[k]);
-  ON.graceT[k]=setTimeout(()=>{if(!ON||!G||p.conn)return;p.remote=false;if(G.turn===k&&G.phase!=='roundEnd'){restoreSnap();startTurn();}},60000);
+  ON.graceT[k]=setTimeout(()=>{if(!ON||!G||p.conn)return;p.remote=false;if(G.turn===k&&G.phase!=='roundEnd'){restoreSnap();startTurn();}},ON.grace*60000);
 }
 const snapOf=()=>JSON.stringify({stock:G.stock,discard:G.discard,melds:G.melds,taken:G.taken,hands:G.players.map(p=>p.hand),op:G.players.map(p=>p.opened)});
 function restoreSnap(){if(!ON.snap)return;const s=JSON.parse(ON.snap);G.stock=s.stock;G.discard=s.discard;G.melds=s.melds;G.taken=s.taken;G.players.forEach((p,i)=>{p.hand=s.hands[i];p.opened=s.op[i];});G.pending=[];}
@@ -771,7 +771,7 @@ function clientDown(){
 function scheduleRc(ms){clearTimeout(ON.rt);ON.rt=setTimeout(tryRc,ms);}
 function tryRc(){
   if(!ON||ON.state!=='reconnecting')return;
-  if(Date.now()-ON.since>300000){onFail('Connessione persa.');return;}
+  if(Date.now()-ON.since>900000){onFail('Connessione persa.');return;}
   if(ON.conn)ON.conn.dead=true;ON.conn=null;try{ON.peer&&ON.peer.destroy();}catch(e){}
   const p=new Peer();ON.peer=p;
   p.on('open',()=>{
@@ -833,6 +833,7 @@ function onAct(a){
   if(a==='ocreate'){const n=val('nick');if(!n){ON.err='Scrivi il tuo nome.';ON.nick='';render();return;}setNick(n);onHost(n);return;}
   if(a==='ojoin'){const n=val('nick'),c=val('code').toUpperCase();ON.nick=n;ON.code=c;if(!n||c.length<4){ON.err='Scrivi nome e codice (4 caratteri).';render();return;}setNick(n);onJoin(n,c);return;}
   if(a==='oseats'){ON.seats=ON.seats>=4?Math.max(2,ON.nicks.length):ON.seats+1;if(ON.seats<ON.nicks.length)ON.seats=ON.nicks.length;render();return;}
+  if(a==='ograce'){ON.grace={1:3,3:5,5:10,10:1}[ON.grace]||3;render();return;}
   if(a==='ostart'){onStart();return;}
   if(a==='oshare'){const url=inviteUrl(),txt='Giochiamo a Scala 40! Entra qui: '+url+' (codice '+ON.code+')';
     if(navigator.share){navigator.share({title:'Scala 40',text:txt}).catch(()=>{});}else window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');return;}
