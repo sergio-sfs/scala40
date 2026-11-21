@@ -31,6 +31,9 @@ html,body{margin:0;height:100%;overscroll-behavior:none;-webkit-user-select:none
 .empty{opacity:.6;font-size:var(--tx);margin:auto}
 .meld{display:flex;align-items:center;background:#0000002e;border-radius:8px;padding:3px 4px;position:relative;cursor:pointer}
 .meld .card+.card{margin-left:calc(var(--cw)*-.42)}
+#tbl.spread .meld{flex-wrap:wrap;gap:4px;max-width:100%}
+#tbl.spread .meld .card+.card{margin-left:0}
+.btns button.sec.on{background:#ffd54f77}
 .own{font-style:normal;font-size:10px;position:absolute;top:-6px;left:-4px;background:#ffd54f;color:#000;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;font-weight:700;z-index:3}
 .own.o1{background:#80d8ff}.own.o2{background:#ff9e80}.own.o3{background:#ccff90}
 .piles{display:flex;align-items:center;gap:12px;padding:4px 12px}
@@ -338,10 +341,10 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.3.0',BUILD='21/11/2026';
+const VERSION='1.4.0',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
-const OPT={size:0,rule:0,game:2,diff:1};
-try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=3)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;}catch(e){}
+const OPT={size:0,rule:0,game:2,diff:1,spread:false};
+try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=3)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;}catch(e){}
 const SIZES=['Normali','Grandi','Molto grandi','Enormi'],RULES=['Classica: devi usarlo subito','Libera dopo l\'apertura','Libera sempre'],GAMES=['Secca (una mano)','A 51 punti','A 101 punti','A 201 punti'];
 const LEVELS=['Facile','Normale','Difficile','Esperto'];
 const verHTML=()=>`<p style="margin:12px 0 0;opacity:.8">Scala 40 · versione <b>${VERSION}</b> (${BUILD})</p>`;
@@ -387,7 +390,7 @@ function gameHTML(){
   const can=myTurn&&G.phase==='play';
   return`<div class="top"><span>Scala 40 · mano ${G.round}${G.target?' · a '+G.target:' · secca'}</span><button data-act="menu">☰</button></div>
   <div class="opps">${opps}</div>
-  <div id="tbl">${melds}</div>
+  <div id="tbl"${OPT.spread?' class="spread"':''}>${melds}</div>
   <div class="piles">
    <div class="pile${myTurn&&G.phase==='draw'?' hint':''}" data-act="stock"><div class="card back"><b class="cnt">${G.stock.length}</b></div><small>mazzo</small></div>
    <div class="pile${myTurn&&G.phase==='draw'?' hint':''}" data-act="disc">${top?cardHTML(top,{noid:1}):'<div class="card ghost"></div>'}<small>scarto</small></div>
@@ -397,6 +400,7 @@ function gameHTML(){
   <div class="hand">${hand}</div>
   <div class="btns">
    <button class="sec" data-act="sort" title="Ordina">⇅</button>
+   <button class="sec${OPT.spread?' on':''}" data-act="spread" title="Carte sul tavolo: sovrapposte o distanziate">↔</button>
    ${can&&G.mustUse!==null&&!G.acted?'<button class="sec" data-act="putback" title="Rimetti lo scarto">↩</button>':''}
    <button data-act="lay" ${can&&G.sel.size>=3?'':'disabled'}>Cala</button>
    ${G.pending.length?`<button data-act="open" ${pt>=40?'':'disabled'}>Apri</button><button data-act="undo">Annulla</button>`:''}
@@ -467,6 +471,7 @@ function act(a,d){
   if(a==='rules'){UI.rules=!UI.rules;render();return;}
   if(a==='menu'){UI.menu=!UI.menu;render();return;}
   if(a==='optsize'||a==='optrule'||a==='optgame'||a==='optdiff'){const k={optsize:'size',optrule:'rule',optgame:'game',optdiff:'diff'}[a];OPT[k]=(OPT[k]+1)%({size:4,rule:3,game:4,diff:4}[k]);try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
+  if(a==='spread'){OPT.spread=!OPT.spread;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='newgame'){G=null;UI.menu=false;render();return;}
   if(a==='next'){newRound();return;}
   if(!G||G.turn!==0||G.phase==='wait'||G.phase==='roundEnd')return;
