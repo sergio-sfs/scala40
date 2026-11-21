@@ -246,7 +246,7 @@ async function startTurn(){
   if(++G.turns>400){endRound(-1);return;}
   const p=G.players[G.turn];
   G.sel.clear();G.mustUse=null;G.acted=false;
-  if(p.remote&&p.conn){G.phase='wait';say(p.name+' sta giocando…');render();sendTurn(G.turn);return;}
+  if(p.remote){if(p.conn){G.phase='wait';say(p.name+' sta giocando…');render();sendTurn(G.turn);}else awayTurn(G.turn);return;}
   if(p.human){G.phase='draw';say('Tocca a te: pesca dal mazzo o prendi lo scarto.');render();return;}
   G.phase='wait';say(p.name+' sta giocando…');render();
   await sleep(700);if(G!==g)return;
@@ -351,7 +351,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.7.1',BUILD='21/11/2026';
+const VERSION='1.8.1',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;}catch(e){}
@@ -430,6 +430,7 @@ function gameHTML(){
 function render(){
   const app=document.getElementById('app'),tb=document.getElementById('tbl'),st=tb?tb.scrollTop:0;
   let h=G?gameHTML():(ON?onlineHTML():startHTML());
+  if(ON&&ON.state==='reconnecting')h+=`<div class="ov"><div class="box"><h2>📶 Connessione persa</h2><p>Provo a ricollegarmi… se eri al telefono o con lo schermo spento, torna qui: rientri nella partita.</p><button class="sec" data-act="oback">Esci</button></div></div>`;
   if(G&&G.phase==='roundEnd'&&G.rows)h+=roundHTML();
   if(UI.choose)h+=chooseHTML();
   if(UI.pick2)h+=pick2HTML();
@@ -642,29 +643,48 @@ function onlineHTML(){
   else b=`<h2>🌐 Online</h2><p style="color:#ffab91">${esc(o.err||'Connessione chiusa.')}</p><button data-act="oback">OK</button>`;
   return`<div class="ov"><div class="box">${b}</div></div>`;
 }
-function leaveOnline(){const o=ON;ON=null;G=null;if(o){clearTimeout(o.bt);clearTimeout(o.ct);try{o.peer&&o.peer.destroy();}catch(e){}}}
-function onFail(m){if(!ON)return;ON.err=m;ON.state=ON.state==='playing'?'ended':'menu';if(ON.state==='ended'){G=null;}try{ON.peer&&ON.peer.destroy();}catch(e){}render();}
+function leaveOnline(){const o=ON;ON=null;G=null;if(o){clearInterval(o.pt);clearTimeout(o.bt);clearTimeout(o.ct);clearTimeout(o.rt);try{o.wlk&&o.wlk.release();}catch(e){}if(o.graceT)Object.values(o.graceT).forEach(clearTimeout);try{o.peer&&o.peer.destroy();}catch(e){}}}
+function onFail(m){if(!ON)return;ON.err=m;ON.state=(ON.state==='playing'||ON.state==='reconnecting')?'ended':'menu';if(ON.state==='ended'){G=null;}try{ON.peer&&ON.peer.destroy();}catch(e){}render();}
 /* --- host --- */
 function onHost(nick){
+  setTimeout(wake,0);
   ON={role:'host',state:'starting',nick,seats:3,conns:{},nicks:[nick],err:'',code:''};render();
+  ON.pt=setInterval(()=>{if(!ON||ON.role!=='host')return;const now=Date.now();const cs=G?G.players.filter(p=>p.remote&&p.conn).map(p=>p.conn):Object.values(ON.conns);cs.forEach(c=>{if(c.last&&now-c.last>22000){try{c.close();}catch(e){}hostLeft(c);}});},5000);
   loadPeer(ok=>{if(!ON)return;if(!ok){onFail('Serve la connessione internet.');return;}mkPeer();});
 }
-function mkPeer(){
-  const code=Array.from({length:4},()=>CODEC[Math.random()*CODEC.length|0]).join('');
+function mkPeer(reuse,tries){
+  const code=reuse||Array.from({length:4},()=>CODEC[Math.random()*CODEC.length|0]).join('');
   const p=new Peer('scala40-'+code);ON.peer=p;
-  p.on('open',()=>{if(!ON||ON.peer!==p)return;ON.code=code;ON.state='lobby';render();});
-  p.on('error',e=>{if(!ON||ON.peer!==p)return;if(e.type==='unavailable-id'){try{p.destroy();}catch(x){}mkPeer();return;}onFail('Errore di rete ('+e.type+').');});
+  p.on('open',()=>{if(!ON||ON.peer!==p)return;ON.code=code;if(ON.state==='starting'){ON.state='lobby';render();}});
+  p.on('disconnected',()=>{if(ON&&ON.peer===p&&!p.destroyed)setTimeout(()=>{try{p.reconnect();}catch(x){}},1500);});
+  p.on('error',e=>{if(!ON||ON.peer!==p)return;
+    if(e.type==='unavailable-id'){try{p.destroy();}catch(x){}if(reuse){if((tries||0)<40)setTimeout(()=>{if(ON&&ON.role==='host')mkPeer(reuse,(tries||0)+1);},2000);else onFail('Non riesco a riaprire la stanza.');}else mkPeer();return;}
+    if(ON.state!=='starting'&&/network|server|socket|disconnected/.test(e.type)){setTimeout(()=>{try{p.reconnect();}catch(x){}},2000);return;}
+    onFail('Errore di rete ('+e.type+').');});
   p.on('connection',c=>{c.on('data',m=>hostMsg(c,m));c.on('close',()=>hostLeft(c));c.on('error',()=>hostLeft(c));});
 }
 function lobbyBcast(){for(const nk of ON.nicks.slice(1)){try{ON.conns[nk].send({t:'lobby',players:ON.nicks,code:ON.code});}catch(e){}}}
 function hostMsg(c,m){
   if(!ON||ON.role!=='host')return;
+  if(m.t==='hello'&&ON.state==='playing'&&G){
+    const nm=String(m.nick||'').slice(0,12),k=G.players.findIndex(p=>p.nick===nm&&p.wasHuman);
+    if(k<1){try{c.send({t:'reject',why:'Partita già iniziata.'});}catch(e){}return;}
+    const p=G.players[k],wasBot=!p.remote;
+    try{p.conn&&p.conn!==c&&p.conn.close();}catch(e){}
+    clearTimeout(ON.graceT&&ON.graceT[k]);
+    p.remote=true;p.conn=c;c.nick=nm;c.last=Date.now();
+    if(G.turn===k&&G.phase!=='roundEnd'&&!wasBot){restoreSnap();say(p.name+' sta giocando…');sendTurn(k);}
+    else try{c.send({t:'st',g:view(G,k),opt:{rule:OPT.rule}});}catch(e){}
+    render();return;
+  }
   if(m.t==='hello'){
     if(ON.state!=='lobby'||ON.nicks.length>=ON.seats){try{c.send({t:'reject',why:ON.state==='lobby'?'Stanza piena.':'Partita già iniziata.'});}catch(e){}return;}
     let nick=String(m.nick||'Ospite').slice(0,12),base=nick,i=2;
     while(ON.nicks.includes(nick)||nick==='Tu'||BOTS.includes(nick))nick=base+(i++);
-    c.nick=nick;ON.nicks.push(nick);ON.conns[nick]=c;lobbyBcast();render();return;
+    c.nick=nick;c.last=Date.now();ON.nicks.push(nick);ON.conns[nick]=c;lobbyBcast();render();return;
   }
+  c.last=Date.now();
+  if(m.t==='ping'){try{c.send({t:'pong'});}catch(e){}return;}
   if(m.t==='draw'&&G){const k=G.players.findIndex(p=>p.conn===c);if(k>0&&G.turn===k&&G.phase!=='roundEnd'){const cd=drawStock();if(!cd){try{c.send({t:'empty'});}catch(e){}return;}G.players[k].hand.push(cd);try{c.send({t:'card',c:cd,disc:G.discard,n:G.stock.length});}catch(e){}}return;}
   if(m.t==='upd'&&G){const k=G.players.findIndex(p=>p.conn===c);if(k>0)applyUpd(k,m);}
 }
@@ -673,15 +693,21 @@ function hostLeft(c){
   if(ON.state==='lobby'&&c.nick){ON.nicks=ON.nicks.filter(x=>x!==c.nick);delete ON.conns[c.nick];lobbyBcast();render();return;}
   if(!G)return;
   const k=G.players.findIndex(p=>p.conn===c);if(k<1)return;
-  const p=G.players[k];p.remote=false;p.conn=null;
-  if(G.turn===k&&G.phase!=='roundEnd'){restoreSnap();startTurn();}else render();
+  const p=G.players[k];p.conn=null;
+  if(G.turn===k&&G.phase!=='roundEnd'){restoreSnap();awayTurn(k);}else render();
+}
+function awayTurn(k){
+  const p=G.players[k];G.phase='wait';ON.snap=snapOf();ON.snapSeat=k;
+  say(p.name+' è assente: lo aspetto un minuto…');render();
+  ON.graceT=ON.graceT||{};clearTimeout(ON.graceT[k]);
+  ON.graceT[k]=setTimeout(()=>{if(!ON||!G||p.conn)return;p.remote=false;if(G.turn===k&&G.phase!=='roundEnd'){restoreSnap();startTurn();}},60000);
 }
 const snapOf=()=>JSON.stringify({stock:G.stock,discard:G.discard,melds:G.melds,taken:G.taken,hands:G.players.map(p=>p.hand),op:G.players.map(p=>p.opened)});
 function restoreSnap(){if(!ON.snap)return;const s=JSON.parse(ON.snap);G.stock=s.stock;G.discard=s.discard;G.melds=s.melds;G.taken=s.taken;G.players.forEach((p,i)=>{p.hand=s.hands[i];p.opened=s.op[i];});G.pending=[];}
 function onStart(){
   if(!ON||ON.state!=='lobby'||ON.nicks.length<2)return;
   ON.state='playing';
-  startGame(ON.seats-1,false,g=>{ON.nicks.slice(1).forEach((nk,i)=>{const p=g.players[i+1];p.name=nk;p.remote=true;p.conn=ON.conns[nk];});});
+  startGame(ON.seats-1,false,g=>{ON.nicks.slice(1).forEach((nk,i)=>{const p=g.players[i+1];p.name=nk;p.nick=nk;p.wasHuman=true;p.remote=true;p.conn=ON.conns[nk];});});
 }
 function vname(M,k,nm){const real=nm==='Tu'?ON.nicks[0]:nm;return real===(k===0?ON.nicks[0]:M.players[k].name)?'Tu':real;}
 function view(M,k){
@@ -698,7 +724,7 @@ function view(M,k){
   return v;
 }
 function sendTurn(k){
-  ON.snap=snapOf();ON.takenBase=G.taken.slice();
+  ON.snap=snapOf();ON.snapSeat=k;ON.takenBase=G.taken.slice();
   try{G.players[k].conn.send({t:'turn',g:view(G,k),opt:{rule:OPT.rule}});}catch(e){}
 }
 function bcast(){
@@ -717,7 +743,10 @@ function applyUpd(k,m){
 }
 /* --- client --- */
 function onJoin(nick,code){
-  ON={role:'client',state:'connecting',nick,code,err:'',players:[]};render();
+  
+  setTimeout(wake,0);
+  ON={role:'client',state:'connecting',nick,code,err:'',players:[],lastRx:Date.now()};render();
+  ON.pt=setInterval(()=>{if(!ON||ON.role!=='client')return;if(ON.state==='reconnecting'||!ON.conn||!ON.conn.open){if(ON.state==='playing'||ON.state==='waiting')clientDown();return;}if(Date.now()-ON.lastRx>14000){try{ON.conn.close();}catch(e){}clientDown();return;}try{ON.conn.send({t:'ping'});}catch(e){}},4000);
   loadPeer(ok=>{
     if(!ON||ON.role!=='client')return;
     if(!ok){onFail('Serve la connessione internet.');return;}
@@ -727,16 +756,40 @@ function onJoin(nick,code){
       const c=p.connect('scala40-'+code,{reliable:true,serialization:'json'});ON.conn=c;
       const to=setTimeout(()=>onFail('Stanza non trovata o organizzatore non raggiungibile.'),15000);
       c.on('open',()=>{clearTimeout(to);c.send({t:'hello',nick});ON.state='waiting';render();});
-      c.on('data',clientMsg);
-      c.on('close',()=>{clearTimeout(to);if(ON&&ON.conn===c&&ON.state!=='menu')onFail('L\'organizzatore ha lasciato la partita.');});
+      c.on('data',m=>{if(ON&&ON.conn===c&&!c.dead){ON.lastRx=Date.now();clientMsg(m);}});
+      c.on('close',()=>{clearTimeout(to);if(ON&&ON.conn===c&&!c.dead)clientDown();});
     });
     p.on('error',e=>{if(!ON||ON.peer!==p)return;onFail(e.type==='peer-unavailable'?'Stanza non trovata.':'Errore di rete ('+e.type+').');});
   });
 }
+function clientDown(){
+  if(!ON||ON.role!=='client'||ON.state==='menu'||ON.state==='ended')return;
+  if(ON.conn)ON.conn.dead=true;
+  if(ON.state!=='reconnecting'){ON.back=ON.state==='waiting'?'waiting':'playing';ON.state='reconnecting';ON.since=Date.now();}
+  render();scheduleRc(2000);
+}
+function scheduleRc(ms){clearTimeout(ON.rt);ON.rt=setTimeout(tryRc,ms);}
+function tryRc(){
+  if(!ON||ON.state!=='reconnecting')return;
+  if(Date.now()-ON.since>300000){onFail('Connessione persa.');return;}
+  if(ON.conn)ON.conn.dead=true;ON.conn=null;try{ON.peer&&ON.peer.destroy();}catch(e){}
+  const p=new Peer();ON.peer=p;
+  p.on('open',()=>{
+    if(!ON||ON.peer!==p)return;
+    const c=p.connect('scala40-'+ON.code,{reliable:true,serialization:'json'});ON.conn=c;
+    c.on('open',()=>{c.send({t:'hello',nick:ON.nick});});
+    c.on('data',m=>{if(ON&&ON.conn===c&&!c.dead){ON.lastRx=Date.now();clientMsg(m);}});
+    c.on('close',()=>{if(ON&&ON.conn===c&&!c.dead)clientDown();});
+    scheduleRc(9000);
+  });
+  p.on('error',()=>{if(ON&&ON.peer===p)scheduleRc(3000);});
+}
 function clientMsg(m){
   if(!ON||ON.role!=='client')return;
+  if(ON.state==='reconnecting'&&(m.t==='st'||m.t==='turn'||m.t==='lobby')){clearTimeout(ON.rt);ON.state=ON.back||'playing';}
+  if(m.t==='pong')return;
   if(m.t==='reject'){onFail(m.why);return;}
-  if(m.t==='lobby'){ON.players=m.players;if(ON.state==='waiting')render();return;}
+  if(m.t==='lobby'){ON.players=m.players;ON.state='waiting';render();return;}
   if(m.t==='card'||m.t==='empty'){
     ON.wd=false;if(!G||G.turn!==0||G.phase!=='draw')return;
     if(m.t==='empty'){endRound(-1);return;}
@@ -758,6 +811,7 @@ function clientMsg(m){
 }
 function sendUpd(extra){
   if(!ON||!ON.conn||!G)return;
+  if(!ON.conn.open){clientDown();return;}
   try{ON.conn.send(Object.assign({t:'upd',g:{players:[{hand:G.players[0].hand,opened:G.players[0].opened}],discard:G.discard,melds:G.melds,taken:G.taken,turn:G.turn}},extra||{}));}catch(e){}
 }
 function netHook(){
@@ -765,6 +819,13 @@ function netHook(){
   if(ON.role==='host'){clearTimeout(ON.bt);ON.bt=setTimeout(bcast,40);}
   else if(G.turn===0&&G.phase!=='wait'&&G.phase!=='roundEnd'){clearTimeout(ON.ct);ON.ct=setTimeout(()=>sendUpd(),40);}
 }
+async function wake(){try{if(navigator.wakeLock&&ON&&ON.state!=='menu'&&ON.state!=='ended'){ON.wlk=await navigator.wakeLock.request('screen');}}catch(e){}}
+function netWake(){
+  if(!ON)return;wake();
+  if(ON.role==='host'&&ON.peer&&ON.state!=='menu'){if(ON.peer.destroyed)mkPeer(ON.code);else if(ON.peer.disconnected){try{ON.peer.reconnect();}catch(e){}}}
+  if(ON.role==='client'&&ON.state==='reconnecting')tryRc();
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)netWake();});
 function onAct(a){
   const val=id=>{const e=document.getElementById(id);return e?e.value.trim():'';};
   if(a==='online'){ON={state:'menu',nick:getNick(),code:'',err:''};render();return;}
