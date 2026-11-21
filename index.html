@@ -28,6 +28,8 @@ html,body{margin:0;height:100%;overscroll-behavior:none;-webkit-user-select:none
 .me small{opacity:.85;font-size:calc(var(--tx)*.9)}
 .me.act{border-color:#ffd54f}
 #app>*{flex-shrink:0}
+.card.tip{outline:3px dashed #80d8ff;outline-offset:1px}
+.coach{margin:0 8px 4px;padding:6px 10px;background:#80d8ff26;border:1px solid #80d8ff88;border-radius:10px;font-size:var(--tx);line-height:1.25}
 input{-webkit-user-select:text;user-select:text;width:100%;font-size:18px;padding:10px;border-radius:10px;border:0;background:#fff;color:#111}
 #tbl{flex:1 1 0;min-height:80px;overflow:auto;margin:6px 8px;background:#0a5a3a;border-radius:12px;padding:6px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px;min-height:80px}
 .empty{opacity:.6;font-size:var(--tx);margin:auto}
@@ -352,10 +354,10 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.10.0',BUILD='21/11/2026';
+const VERSION='1.10.1',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
-const OPT={size:4,rule:0,game:2,diff:1,spread:false};
-try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;}catch(e){}
+const OPT={size:4,rule:0,game:2,diff:1,spread:false,coach:false};
+try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;OPT.coach=o.coach===true;}catch(e){}
 const SIZES=['Normali','Grandi','Molto grandi','Enormi','Auto (adatta)'],RULES=['Classica: devi usarlo subito','Libera dopo l\'apertura','Libera sempre'],GAMES=['Secca (una mano)','A 51 punti','A 101 punti','A 201 punti'];
 const LEVELS=['Facile','Normale','Difficile','Esperto'];
 const verHTML=()=>`<p style="margin:12px 0 0;opacity:.8">Scala 40 · versione <b>${VERSION}</b> (${BUILD})</p>`;
@@ -363,7 +365,7 @@ function optsHTML(){return`<button class="sec opt" data-act="optsize">🔍 Carte
 function cardHTML(c,o={}){
   const cl=['card'];if(o.sm)cl.push('sm');
   if(c.j)cl.push('joker');else cl.push('k'+c.s);
-  if(o.sel)cl.push('sel');if(o.isNew)cl.push('new');if(o.must)cl.push('must');
+  if(o.sel)cl.push('sel');if(o.isNew)cl.push('new');if(o.must)cl.push('must');if(o.tip)cl.push('tip');
   const inner=c.j?`<span>★</span><span class="tiny">${o.p?rk(o.p)+(o.su!==undefined?SUITS[o.su]:''):'JOLLY'}</span>`:`<span>${rk(c.r)}</span><span class="su">${SUITS[c.s]}</span>`;
   return`<div class="${cl.join(' ')}" ${o.noid?'':`data-act="card" data-id="${c.id}"`}>${inner}</div>`;
 }
@@ -391,7 +393,7 @@ function menuHTML(){
   <li>Serve la parola d'accesso (te la dà chi ti invita; la scrivi la prima volta su ogni dispositivo). Dal menu iniziale: 🌐 Gioca online → Crea stanza, poi invia link e codice. Gli amici aprono il link, vanno su Gioca online e scrivono parola d'accesso, nome e codice stanza. Chi crea la stanza decide quando avviare e gestisce i passaggi di mano; i posti liberi li occupa il computer. Tutti devono tenere l'app aperta: se qualcuno esce, il computer prende il suo posto.</li></ul>
   <h3 style="margin:12px 0 2px">Comandi</h3><ul>
   <li>Trascina le carte per riordinarle (se ne selezioni più d'una si spostano insieme); ⇅ le ordina; ↔ distanzia le carte sul tavolo.</li>
-  <li>💡 (solo contro il computer) è il tuo istruttore: ti dice se pescare o prendere lo scarto, cosa calare, cosa attaccare e quale carta scartare, e seleziona le carte consigliate. Decidi tu se seguirlo.</li>
+  <li>💡 (solo contro il computer) accende o spegne l'istruttore: quando è acceso (pulsante illuminato) ad ogni tuo passo suggerisce se pescare o prendere lo scarto, cosa calare, cosa attaccare e quale carta scartare, e segna le carte consigliate con un bordo tratteggiato. Decidi tu se seguirlo. Ritoccalo per spegnerlo.</li>
   <li>Con la regola classica, se hai preso lo scarto e non ti serve, ↩ lo rimette a posto.</li></ul>
   <button data-act="rules">Chiudi</button></div></div>`;
 }
@@ -408,7 +410,8 @@ function gameHTML(){
   const melds=G.melds.map((m,i)=>`<div class="meld" data-act="meld" data-i="${i}"><i class="own o${m.owner}">${G.players[m.owner].name[0]}</i>${m.cards.map(mini).join('')}</div>`).join('')||'<div class="empty">Nessuna combinazione sul tavolo</div>';
   const pt=G.pending.reduce((s,e)=>s+e.pts,0);
   const pend=G.pending.length?`<div class="pend"><small>Apertura: ${pt}/40 punti</small><div class="row">${G.pending.map(e=>`<div class="meld">${e.cards.map(mini).join('')}</div>`).join('')}</div></div>`:'';
-  const hand=me.hand.map(c=>cardHTML(c,{sel:G.sel.has(c.id),isNew:c.id===G.newId,must:c.id===G.mustUse})).join('');
+  const hint=OPT.coach&&!ON&&myTurn&&(G.phase==='draw'||G.phase==='play')?coachCached():null,tips=new Set(hint&&hint.sel||[]);
+  const hand=me.hand.map(c=>cardHTML(c,{sel:G.sel.has(c.id),isNew:c.id===G.newId,must:c.id===G.mustUse,tip:tips.has(c.id)&&!G.sel.has(c.id)})).join('');
   const can=myTurn&&G.phase==='play';
   return`<div class="top"><span>Scala 40 · mano ${G.round}${G.target?' · a '+G.target:' · secca'}</span><button data-act="menu">☰</button></div>
   <div class="opps">${opps}</div>
@@ -417,14 +420,14 @@ function gameHTML(){
    <div class="pile${myTurn&&G.phase==='draw'?' hint':''}" data-act="stock"><div class="card back"><b class="cnt">${G.stock.length}</b></div><small>mazzo</small></div>
    <div class="pile${myTurn&&G.phase==='draw'?' hint':''}" data-act="disc">${top?cardHTML(top,{noid:1}):'<div class="card ghost"></div>'}<small>scarto</small></div>
    <div class="msg${G.err?' err':''}">${G.msg||''}</div>
-  </div>${pend}
+  </div>${hint&&hint.text?`<div class="coach">${hint.text}</div>`:''}${pend}
   <div class="me${myTurn?' act':''}"><b>Tu</b>${me.opened?' ✓':''}<br><small>${me.hand.length} carte · ${me.score}${G.target?'/'+G.target:''} pt</small></div>
   <div class="hand">${hand}</div>
   <div class="btns">
    <button class="sec" data-act="sort" title="Ordina">⇅</button>
    <button class="sec${OPT.spread?' on':''}" data-act="spread" title="Carte sul tavolo: sovrapposte o distanziate">↔</button>
    ${can&&G.mustUse!==null&&!G.acted?'<button class="sec" data-act="putback" title="Rimetti lo scarto">↩</button>':''}
-   ${!ON&&myTurn&&(G.phase==='draw'||G.phase==='play')?'<button class="sec" data-act="hint" title="Suggerimento">💡</button>':''}
+   ${!ON?`<button class="sec${OPT.coach?' on':''}" data-act="hint" title="Istruttore: acceso/spento">💡</button>`:''}
    <button data-act="lay" ${can&&G.sel.size>=3?'':'disabled'}>Cala</button>
    ${G.pending.length?`<button data-act="open" ${pt>=40?'':'disabled'}>Apri</button><button data-act="undo">Annulla</button>`:''}
    <button data-act="discard" ${can&&G.sel.size===1?'':'disabled'}>Scarta</button>
@@ -469,6 +472,11 @@ function chooseHTML(){
   <button class="sec" data-act="pickcancel">Annulla</button></div></div>`;
 }
 // Scambio del jolly: la carta scelta prende il posto del jolly, che torna in mano
+function coachCached(){
+  const me=H(),key=[G.phase,G.round,G.turns,me.hand.map(c=>c.id).join(),G.discard.length,G.melds.length,G.melds.reduce((a,m)=>a+m.cards.length,0),G.mustUse,G.acted].join('|');
+  if(G._ck!==key){G._ck=key;G._ch=coachHint();}
+  return G._ch;
+}
 function coachHint(){
   const me=H(),hand=me.hand,top=G.discard[G.discard.length-1];
   if(G.phase==='draw'){
@@ -536,6 +544,7 @@ function act(a,d){
   if(a==='rules'){UI.rules=!UI.rules;render();return;}
   if(a==='menu'){UI.menu=!UI.menu;render();return;}
   if(a==='optsize'||a==='optrule'||a==='optgame'||a==='optdiff'){const k={optsize:'size',optrule:'rule',optgame:'game',optdiff:'diff'}[a];OPT[k]=(OPT[k]+1)%({size:5,rule:3,game:4,diff:4}[k]);try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
+  if(a==='hint'){if(ON)return;OPT.coach=!OPT.coach;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='spread'){OPT.spread=!OPT.spread;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(/^(online|oback|ocreate|ojoin|oseats|ograce|ostart|oshare)$/.test(a)){onAct(a);return;}
   if(a==='newgame'){if(ON)leaveOnline();G=null;UI.menu=false;if(tryUpd())return;render();return;}
@@ -564,7 +573,6 @@ function act(a,d){
       G.mustUse=null;G.phase='draw';say('Scarto rimesso a posto: ora pesca dal mazzo.');render();break;}
     case'card':{
       const id=+d.id;G.sel.has(id)?G.sel.delete(id):G.sel.add(id);render();break;}
-    case'hint':{if(ON)return;const h=coachHint();G.sel=new Set(h.sel||[]);say(h.text||'');render();break;}
     case'sort':{G.sortMode=1-G.sortMode;sortHand();render();break;}
     case'lay':{
       if(G.phase!=='play')return;
