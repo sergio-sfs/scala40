@@ -351,7 +351,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.7.0',BUILD='21/11/2026';
+const VERSION='1.7.1',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;}catch(e){}
@@ -512,6 +512,7 @@ function act(a,d){
   switch(a){
     case'stock':{
       if(G.phase!=='draw')return;
+      if(ON&&ON.role==='client'){if(ON.wd)return;ON.wd=true;try{ON.conn.send({t:'draw'});}catch(e){ON.wd=false;}return;}
       const c=drawStock();if(!c){endRound(-1);return;}
       me.hand.push(c);G.newId=c.id;G.phase='play';say('Hai pescato '+cs(c)+'. Cala, attacca o scarta.');render();break;}
     case'disc':{
@@ -664,6 +665,7 @@ function hostMsg(c,m){
     while(ON.nicks.includes(nick)||nick==='Tu'||BOTS.includes(nick))nick=base+(i++);
     c.nick=nick;ON.nicks.push(nick);ON.conns[nick]=c;lobbyBcast();render();return;
   }
+  if(m.t==='draw'&&G){const k=G.players.findIndex(p=>p.conn===c);if(k>0&&G.turn===k&&G.phase!=='roundEnd'){const cd=drawStock();if(!cd){try{c.send({t:'empty'});}catch(e){}return;}G.players[k].hand.push(cd);try{c.send({t:'card',c:cd,disc:G.discard,n:G.stock.length});}catch(e){}}return;}
   if(m.t==='upd'&&G){const k=G.players.findIndex(p=>p.conn===c);if(k>0)applyUpd(k,m);}
 }
 function hostLeft(c){
@@ -690,6 +692,7 @@ function view(M,k){
   v.melds=M.melds.map(m=>Object.assign({},m,{owner:map(m.owner)}));
   v.rows=M.rows?M.rows.map(r=>Object.assign({},r,{name:vname(M,k,r.name)})):null;
   if(M.winner)v.winner=vname(M,k,M.winner);
+  v.stock=new Array(M.stock.length).fill(0);
   v.sel=[];v.pending=[];v.taken=[];v.mustUse=null;v.newId=null;
   if(!mine&&M.phase!=='roundEnd'){v.phase='wait';v.msg=(M.turn===0?ON.nicks[0]:M.players[M.turn].name)+' sta giocando…';v.err=false;}
   return v;
@@ -706,7 +709,7 @@ function applyUpd(k,m){
   if(G.turn!==k||G.phase==='roundEnd')return;
   const v=m.g,n=G.players.length,un=i=>(i+k)%n;
   G.players[k].hand=v.players[0].hand;G.players[k].opened=v.players[0].opened;
-  G.stock=v.stock;G.discard=v.discard;G.melds=v.melds.map(x=>Object.assign({},x,{owner:un(x.owner)}));
+  G.discard=v.discard;G.melds=v.melds.map(x=>Object.assign({},x,{owner:un(x.owner)}));
   G.taken=(ON.takenBase||[]).concat(v.taken.map(t=>({by:un(t.by),card:t.card})));
   if(m.close){endRound(m.closer===-1?-1:k);return;}
   if(m.done){G.turn=un(v.turn);startTurn();return;}
@@ -734,7 +737,14 @@ function clientMsg(m){
   if(!ON||ON.role!=='client')return;
   if(m.t==='reject'){onFail(m.why);return;}
   if(m.t==='lobby'){ON.players=m.players;if(ON.state==='waiting')render();return;}
+  if(m.t==='card'||m.t==='empty'){
+    ON.wd=false;if(!G||G.turn!==0||G.phase!=='draw')return;
+    if(m.t==='empty'){endRound(-1);return;}
+    H().hand.push(m.c);G.newId=m.c.id;G.phase='play';G.discard=m.disc;G.stock=new Array(m.n).fill(0);
+    say('Hai pescato '+cs(m.c)+'. Cala, attacca o scarta.');render();return;
+  }
   if(m.t==='turn'||m.t==='st'){
+    ON.wd=false;
     const g=m.g,old=(G&&G.players&&G.players[0].hand)?G.players[0].hand.map(c=>c.id):[];
     g.sel=new Set();OPT.rule=m.opt.rule;
     const idx=new Map(old.map((id,i)=>[id,i]));let unk=0;
@@ -748,7 +758,7 @@ function clientMsg(m){
 }
 function sendUpd(extra){
   if(!ON||!ON.conn||!G)return;
-  try{ON.conn.send(Object.assign({t:'upd',g:{players:[{hand:G.players[0].hand,opened:G.players[0].opened}],stock:G.stock,discard:G.discard,melds:G.melds,taken:G.taken,turn:G.turn}},extra||{}));}catch(e){}
+  try{ON.conn.send(Object.assign({t:'upd',g:{players:[{hand:G.players[0].hand,opened:G.players[0].opened}],discard:G.discard,melds:G.melds,taken:G.taken,turn:G.turn}},extra||{}));}catch(e){}
 }
 function netHook(){
   if(!ON||ON.applying||ON.state!=='playing'||!G)return;
