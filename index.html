@@ -28,6 +28,10 @@ html,body{margin:0;height:100%;overscroll-behavior:none;-webkit-user-select:none
 .me small{opacity:.85;font-size:calc(var(--tx)*.9)}
 .me.act{border-color:#ffd54f}
 #app>*{flex-shrink:0}
+.jst{font-size:calc(var(--fs)*.85)}
+.jl{font-size:calc(var(--fs)*1.1);font-weight:800;line-height:1;display:flex;align-items:baseline;gap:1px;color:#4a148c}
+.jl b{font-size:1.25em}
+.jl .k0{color:#111}.jl .k1{color:#d32f2f}.jl .k2{color:#1565c0}.jl .k3{color:#2e7d32}
 .card.tip{outline:3px dashed #80d8ff;outline-offset:1px}
 .coach{margin:0 8px 4px;padding:6px 10px;background:#80d8ff26;border:1px solid #80d8ff88;border-radius:10px;font-size:var(--tx);line-height:1.25}
 input{-webkit-user-select:text;user-select:text;width:100%;font-size:18px;padding:10px;border-radius:10px;border:0;background:#fff;color:#111}
@@ -354,7 +358,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.10.1',BUILD='21/11/2026';
+const VERSION='1.10.2',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false,coach:false};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;OPT.coach=o.coach===true;}catch(e){}
@@ -366,10 +370,10 @@ function cardHTML(c,o={}){
   const cl=['card'];if(o.sm)cl.push('sm');
   if(c.j)cl.push('joker');else cl.push('k'+c.s);
   if(o.sel)cl.push('sel');if(o.isNew)cl.push('new');if(o.must)cl.push('must');if(o.tip)cl.push('tip');
-  const inner=c.j?`<span>★</span><span class="tiny">${o.p?rk(o.p)+(o.su!==undefined?SUITS[o.su]:''):'JOLLY'}</span>`:`<span>${rk(c.r)}</span><span class="su">${SUITS[c.s]}</span>`;
+  const inner=c.j?(o.p?`<span class="jst">★</span><span class="jl">${rk(o.p)}${o.su!==undefined?`<b class="k${o.su}">${SUITS[o.su]}</b>`:''}</span>`:`<span>★</span><span class="tiny">JOLLY</span>`):`<span>${rk(c.r)}</span><span class="su">${SUITS[c.s]}</span>`;
   return`<div class="${cl.join(' ')}" ${o.noid?'':`data-act="card" data-id="${c.id}"`}>${inner}</div>`;
 }
-const mini=x=>cardHTML(x.c,{sm:1,p:x.p,su:x.su,noid:1});
+const mini=(x,m)=>{let su=x.su;if(su===undefined&&x.c.j&&m&&m.type==='run'){const r=m.cards.find(y=>!y.c.j);if(r)su=r.c.s;}return cardHTML(x.c,{sm:1,p:x.p,su,noid:1});};
 function startHTML(){
   return`<div class="ov"><div class="box"><h2>🃏 Scala 40</h2><p>Quanti avversari?</p>
   <button data-act="start" data-n="1">1</button><button data-act="start" data-n="2">2</button><button data-act="start" data-n="3">3</button>
@@ -407,9 +411,9 @@ function gameHTML(){
   const me=H(),myTurn=G.turn===0&&G.phase!=='roundEnd'&&G.phase!=='wait';
   const top=G.discard[G.discard.length-1];
   const opps=G.players.slice(1).map((p,k)=>`<div class="opp${G.turn===k+1&&G.phase!=='roundEnd'?' act':''}${p.out?' out':''}"><b>${p.name}</b>${p.opened?' ✓':''}<br><small>${p.hand.length} carte · ${p.score} pt</small></div>`).join('');
-  const melds=G.melds.map((m,i)=>`<div class="meld" data-act="meld" data-i="${i}"><i class="own o${m.owner}">${G.players[m.owner].name[0]}</i>${m.cards.map(mini).join('')}</div>`).join('')||'<div class="empty">Nessuna combinazione sul tavolo</div>';
+  const melds=G.melds.map((m,i)=>`<div class="meld" data-act="meld" data-i="${i}"><i class="own o${m.owner}">${G.players[m.owner].name[0]}</i>${m.cards.map(x=>mini(x,m)).join('')}</div>`).join('')||'<div class="empty">Nessuna combinazione sul tavolo</div>';
   const pt=G.pending.reduce((s,e)=>s+e.pts,0);
-  const pend=G.pending.length?`<div class="pend"><small>Apertura: ${pt}/40 punti</small><div class="row">${G.pending.map(e=>`<div class="meld">${e.cards.map(mini).join('')}</div>`).join('')}</div></div>`:'';
+  const pend=G.pending.length?`<div class="pend"><small>Apertura: ${pt}/40 punti</small><div class="row">${G.pending.map(e=>`<div class="meld">${e.cards.map(x=>mini(x,e)).join('')}</div>`).join('')}</div></div>`:'';
   const hint=OPT.coach&&!ON&&myTurn&&(G.phase==='draw'||G.phase==='play')?coachCached():null,tips=new Set(hint&&hint.sel||[]);
   const hand=me.hand.map(c=>cardHTML(c,{sel:G.sel.has(c.id),isNew:c.id===G.newId,must:c.id===G.mustUse,tip:tips.has(c.id)&&!G.sel.has(c.id)})).join('');
   const can=myTurn&&G.phase==='play';
@@ -468,7 +472,7 @@ function layMeld(ev,cards){
 function chooseHTML(){
   const hasSet=UI.choose.opts[0].type==='set';
   return`<div class="ov"><div class="box"><h2>${hasSet?'Che seme ha il jolly?':'Dove metti il jolly?'}</h2><p style="font-size:13px;opacity:.85;margin:0 0 6px">Tocca la disposizione che vuoi calare.</p>
-  ${UI.choose.opts.map((o,k)=>`<button class="sec opt" data-act="pick" data-k="${k}"><div class="chrow">${o.cards.map(mini).join('')}</div></button>`).join('')}
+  ${UI.choose.opts.map((o,k)=>`<button class="sec opt" data-act="pick" data-k="${k}"><div class="chrow">${o.cards.map(x=>mini(x,o)).join('')}</div></button>`).join('')}
   <button class="sec" data-act="pickcancel">Annulla</button></div></div>`;
 }
 // Scambio del jolly: la carta scelta prende il posto del jolly, che torna in mano
