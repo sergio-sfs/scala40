@@ -16,7 +16,7 @@
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overscroll-behavior:none;-webkit-user-select:none;user-select:none;touch-action:manipulation;background:#073b27;color:#fff;font-family:-apple-system,system-ui,Segoe UI,Roboto,sans-serif}
-#app{--tx:16px;--cw:42px;--ch:60px;--fs:18px;--sw:30px;--sh:42px;--sfs:13px;overflow-y:auto;height:100vh;height:100dvh;display:flex;flex-direction:column;width:100%;position:relative;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+#app{--tx:16px;--cw:42px;--ch:60px;--fs:18px;--sw:30px;--sh:42px;--sfs:13px;overflow-y:auto;position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;padding-top:calc(max(env(safe-area-inset-top),0px) + 10px);padding-bottom:calc(max(env(safe-area-inset-bottom),0px) + 6px)}
 .top{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;font-weight:700;font-size:calc(var(--tx)*1.1)}
 .top button{background:#0000004d;color:#fff;border:0;border-radius:8px;font-size:18px;padding:4px 10px}
 .opps{display:flex;gap:6px;padding:0 8px}
@@ -346,11 +346,11 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.5.0',BUILD='21/11/2026';
+const VERSION='1.6.0',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
-const OPT={size:0,rule:0,game:2,diff:1,spread:false};
-try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=3)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;}catch(e){}
-const SIZES=['Normali','Grandi','Molto grandi','Enormi'],RULES=['Classica: devi usarlo subito','Libera dopo l\'apertura','Libera sempre'],GAMES=['Secca (una mano)','A 51 punti','A 101 punti','A 201 punti'];
+const OPT={size:4,rule:0,game:2,diff:1,spread:false};
+try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;}catch(e){}
+const SIZES=['Normali','Grandi','Molto grandi','Enormi','Auto (adatta)'],RULES=['Classica: devi usarlo subito','Libera dopo l\'apertura','Libera sempre'],GAMES=['Secca (una mano)','A 51 punti','A 101 punti','A 201 punti'];
 const LEVELS=['Facile','Normale','Difficile','Esperto'];
 const verHTML=()=>`<p style="margin:12px 0 0;opacity:.8">Scala 40 · versione <b>${VERSION}</b> (${BUILD})</p>`;
 function optsHTML(){return`<button class="sec opt" data-act="optsize">🔍 Carte: <b>${SIZES[OPT.size]}</b></button><button class="sec opt" data-act="optrule">🃏 Scarto preso: <b>${RULES[OPT.rule]}</b></button><button class="sec opt" data-act="optgame">🎯 Partita: <b>${GAMES[OPT.game]}</b></button><button class="sec opt" data-act="optdiff">🤖 Difficoltà: <b>${LEVELS[OPT.diff]}</b></button>`;}
@@ -430,8 +430,18 @@ function render(){
   else if(UI.menu)h+=`<div class="ov"><div class="box"><h2>Menu</h2>${optsHTML()}<button data-act="newgame">Nuova partita</button><button class="sec" data-act="rules">Guida e regole</button><button class="sec" data-act="menu">Chiudi</button>${verHTML()}</div></div>`;
   app.className='s'+OPT.size;
   app.innerHTML=h;
+  fit();
   const t2=document.getElementById('tbl');if(t2)t2.scrollTop=st;
 }
+function fit(){
+  const app=document.getElementById('app');if(!app||OPT.size!==4){if(app)app.removeAttribute('style');return;}
+  const W=app.clientWidth||390,H=app.clientHeight||800;
+  const set=cw=>{const st=app.style;st.setProperty('--cw',cw+'px');st.setProperty('--ch',Math.round(cw*1.43)+'px');st.setProperty('--fs',Math.round(cw*.42)+'px');st.setProperty('--sw',Math.round(cw*.7)+'px');st.setProperty('--sh',Math.round(cw*.98)+'px');st.setProperty('--sfs',Math.round(cw*.3)+'px');st.setProperty('--tx',Math.max(14,Math.min(22,Math.round(cw*.34)))+'px');};
+  const cap=Math.min(88,Math.floor((W-16-24)/7));
+  const tb=()=>document.getElementById('tbl');
+  for(let cw=cap;cw>=34;cw-=2){set(cw);const t=tb();if(!t||t.clientHeight>=Math.max(130,H*.3))break;}
+}
+window.addEventListener('resize',()=>fit());window.addEventListener('orientationchange',()=>setTimeout(fit,200));
 function toast(m){say(m,true);render();}
 function layMeld(ev,cards){
   const me=H(),ids=new Set(cards.map(c=>c.id));
@@ -483,7 +493,7 @@ function act(a,d){
   if(a==='start'){startGame(+d.n);return;}
   if(a==='rules'){UI.rules=!UI.rules;render();return;}
   if(a==='menu'){UI.menu=!UI.menu;render();return;}
-  if(a==='optsize'||a==='optrule'||a==='optgame'||a==='optdiff'){const k={optsize:'size',optrule:'rule',optgame:'game',optdiff:'diff'}[a];OPT[k]=(OPT[k]+1)%({size:4,rule:3,game:4,diff:4}[k]);try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
+  if(a==='optsize'||a==='optrule'||a==='optgame'||a==='optdiff'){const k={optsize:'size',optrule:'rule',optgame:'game',optdiff:'diff'}[a];OPT[k]=(OPT[k]+1)%({size:5,rule:3,game:4,diff:4}[k]);try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='spread'){OPT.spread=!OPT.spread;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='newgame'){G=null;UI.menu=false;render();return;}
   if(a==='next'){newRound();return;}
