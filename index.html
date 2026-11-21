@@ -347,7 +347,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.6.1',BUILD='21/11/2026';
+const VERSION='1.6.2',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;}catch(e){}
@@ -428,7 +428,7 @@ function render(){
   if(UI.choose)h+=chooseHTML();
   if(UI.pick2)h+=pick2HTML();
   if(UI.rules)h+=menuHTML();
-  else if(UI.menu)h+=`<div class="ov"><div class="box"><h2>Menu</h2>${optsHTML()}<button data-act="newgame">Nuova partita</button><button class="sec" data-act="rules">Guida e regole</button><button class="sec" data-act="menu">Chiudi</button>${verHTML()}</div></div>`;
+  else if(UI.menu)h+=`<div class="ov"><div class="box"><h2>Menu</h2>${optsHTML()}<button data-act="newgame">Nuova partita</button>${G?'<button class="sec" data-act="exit">Fine partita ed esci</button>':''}<button class="sec" data-act="rules">Guida e regole</button><button class="sec" data-act="menu">Chiudi</button>${verHTML()}${UPD?'<p style="margin:6px 0 0;color:#ffd54f">Aggiornamento pronto: si installa a fine partita.</p>':''}</div></div>`;
   app.className='s'+OPT.size;
   app.innerHTML=h;
   fit();
@@ -497,7 +497,8 @@ function act(a,d){
   if(a==='menu'){UI.menu=!UI.menu;render();return;}
   if(a==='optsize'||a==='optrule'||a==='optgame'||a==='optdiff'){const k={optsize:'size',optrule:'rule',optgame:'game',optdiff:'diff'}[a];OPT[k]=(OPT[k]+1)%({size:5,rule:3,game:4,diff:4}[k]);try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='spread'){OPT.spread=!OPT.spread;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
-  if(a==='newgame'){G=null;UI.menu=false;render();return;}
+  if(a==='newgame'){G=null;UI.menu=false;if(tryUpd())return;render();return;}
+  if(a==='exit'){G=null;UI.menu=false;if(tryUpd())return;render();return;}
   if(a==='next'){newRound();return;}
   if(!G||G.turn!==0||G.phase==='wait'||G.phase==='roundEnd')return;
   const me=H();
@@ -617,7 +618,8 @@ function endDrag(){
 window.addEventListener('pointerup',endDrag);
 window.addEventListener('pointercancel',endDrag);
 render();
-if('serviceWorker' in navigator){window.addEventListener('load',()=>{try{navigator.serviceWorker.register('sw.js').catch(()=>{});}catch(e){}});}
+let UPD=false;function tryUpd(){if(UPD&&!G){UPD=false;location.reload();return true;}return false;}
+if('serviceWorker' in navigator){const had=!!navigator.serviceWorker.controller;window.addEventListener('load',()=>{try{navigator.serviceWorker.register('sw.js').catch(()=>{});navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had)return;UPD=true;if(!tryUpd())render();});}catch(e){}});}
 </script>
 </body>
 </html>
