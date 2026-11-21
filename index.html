@@ -27,7 +27,8 @@ html,body{margin:0;height:100%;overscroll-behavior:none;-webkit-user-select:none
 .me{margin:0 8px;background:#0000003a;border-radius:10px;padding:5px 8px;font-size:var(--tx);text-align:center;border:2px solid transparent}
 .me small{opacity:.85;font-size:calc(var(--tx)*.9)}
 .me.act{border-color:#ffd54f}
-#tbl{flex:1;overflow:auto;margin:6px 8px;background:#0a5a3a;border-radius:12px;padding:6px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px;min-height:80px}
+#app>*{flex-shrink:0}
+#tbl{flex:1 1 0;min-height:80px;overflow:auto;margin:6px 8px;background:#0a5a3a;border-radius:12px;padding:6px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px;min-height:80px}
 .empty{opacity:.6;font-size:var(--tx);margin:auto}
 .meld{display:flex;align-items:center;background:#0000002e;border-radius:8px;padding:3px 4px;position:relative;cursor:pointer}
 .meld .card+.card{margin-left:calc(var(--cw)*-.42)}
@@ -346,7 +347,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.6.0',BUILD='21/11/2026';
+const VERSION='1.6.1',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;}catch(e){}
@@ -434,7 +435,8 @@ function render(){
   const t2=document.getElementById('tbl');if(t2)t2.scrollTop=st;
 }
 function fit(){
-  const app=document.getElementById('app');if(!app||OPT.size!==4){if(app)app.removeAttribute('style');return;}
+  const app=document.getElementById('app');
+  try{if(app&&navigator.standalone){app.style.bottom='auto';app.style.height=Math.max(window.innerHeight,screen.height)+'px';}}catch(e){}if(!app)return;if(OPT.size!==4){['--cw','--ch','--fs','--sw','--sh','--sfs','--tx'].forEach(v=>app.style.removeProperty&&app.style.removeProperty(v));return;}
   const W=app.clientWidth||390,H=app.clientHeight||800;
   const set=cw=>{const st=app.style;st.setProperty('--cw',cw+'px');st.setProperty('--ch',Math.round(cw*1.43)+'px');st.setProperty('--fs',Math.round(cw*.42)+'px');st.setProperty('--sw',Math.round(cw*.7)+'px');st.setProperty('--sh',Math.round(cw*.98)+'px');st.setProperty('--sfs',Math.round(cw*.3)+'px');st.setProperty('--tx',Math.max(14,Math.min(22,Math.round(cw*.34)))+'px');};
   const cap=Math.min(88,Math.floor((W-16-24)/7));
