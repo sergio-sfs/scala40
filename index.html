@@ -351,7 +351,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.9.0',BUILD='21/11/2026';
+const VERSION='1.9.1',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;}catch(e){}
@@ -387,7 +387,7 @@ function menuHTML(){
   <li><b>Difficile</b>: sbaglia poco e prende i jolly dal tavolo.</li>
   <li><b>Esperto</b>: non sbaglia occasioni, cala il massimo di carte possibile, scambia i jolly ed evita di scartare ciò che serve agli avversari.</li></ul>
   <h3 style="margin:12px 0 2px">Online con amici</h3><ul>
-  <li>Serve la parola d'accesso (te la dà chi ti invita). Dal menu iniziale: 🌐 Gioca online → Crea stanza, poi invia il link. Gli amici lo aprono, scrivono il nome ed entrano. Chi crea la stanza decide quando avviare e gestisce i passaggi di mano; i posti liberi li occupa il computer. Tutti devono tenere l'app aperta: se qualcuno esce, il computer prende il suo posto.</li></ul>
+  <li>Serve la parola d'accesso (te la dà chi ti invita; la scrivi la prima volta su ogni dispositivo). Dal menu iniziale: 🌐 Gioca online → Crea stanza, poi invia link e codice. Gli amici aprono il link, vanno su Gioca online e scrivono parola d'accesso, nome e codice stanza. Chi crea la stanza decide quando avviare e gestisce i passaggi di mano; i posti liberi li occupa il computer. Tutti devono tenere l'app aperta: se qualcuno esce, il computer prende il suo posto.</li></ul>
   <h3 style="margin:12px 0 2px">Comandi</h3><ul>
   <li>Trascina le carte per riordinarle (se ne selezioni più d'una si spostano insieme); ⇅ le ordina; ↔ distanzia le carte sul tavolo.</li>
   <li>Con la regola classica, se hai preso lo scarto e non ti serve, ↩ lo rimette a posto.</li></ul>
@@ -636,7 +636,7 @@ const getNick=()=>{try{return localStorage.getItem('scala40nick')||'';}catch(e){
 const setNick=n=>{try{localStorage.setItem('scala40nick',n);}catch(e){}};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function loadPeer(cb){if(typeof Peer!=='undefined')return cb(true);const s=document.createElement('script');s.src=PEERJS;s.onload=()=>cb(true);s.onerror=()=>cb(false);document.head.appendChild(s);}
-const inviteUrl=()=>location.origin+location.pathname+'?stanza='+ON.code;
+const inviteUrl=()=>location.origin+location.pathname;
 function onlineHTML(){
   const o=ON,players=(o.role==='host'?o.nicks:o.players||[]).map(esc).join(', ');
   let b='';
@@ -839,11 +839,10 @@ async function onAct(a){
   if(a==='oseats'){ON.seats=ON.seats>=4?Math.max(2,ON.nicks.length):ON.seats+1;if(ON.seats<ON.nicks.length)ON.seats=ON.nicks.length;render();return;}
   if(a==='ograce'){ON.grace={1:3,3:5,5:10,10:1}[ON.grace]||3;render();return;}
   if(a==='ostart'){onStart();return;}
-  if(a==='oshare'){const url=inviteUrl(),txt='Giochiamo a Scala 40! Entra qui: '+url+' (codice '+ON.code+')';
+  if(a==='oshare'){const url=inviteUrl(),txt='Giochiamo a Scala 40! Apri: '+url+' → 🌐 Gioca online → Entra nella stanza. Codice stanza: '+ON.code+'. La parola d\'accesso te la do io.';
     if(navigator.share){navigator.share({title:'Scala 40',text:txt}).catch(()=>{});}else window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');return;}
 }
 
-try{const inv=new URLSearchParams(location.search).get('stanza');if(inv){ON={state:'menu',nick:getNick(),key:getKey(),code:inv.toUpperCase().slice(0,4),err:''};}}catch(e){}
 render();
 let UPD=false;function tryUpd(){if(UPD&&!G){UPD=false;location.reload();return true;}return false;}
 if('serviceWorker' in navigator){const had=!!navigator.serviceWorker.controller;window.addEventListener('load',()=>{try{navigator.serviceWorker.register('sw.js').catch(()=>{});navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had)return;UPD=true;if(!tryUpd())render();});}catch(e){}});}
