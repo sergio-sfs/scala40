@@ -33,7 +33,8 @@ html,body{margin:0;height:100%;overscroll-behavior:none;-webkit-user-select:none
 .piles{display:flex;align-items:center;gap:12px;padding:4px 12px}
 .pile{position:relative;text-align:center;font-size:calc(var(--tx)*.85)}
 .pile.hint .card{box-shadow:0 0 0 3px #ffd54f}
-.pile small{display:block;opacity:.8}
+.pile small{display:block;opacity:.95;font-size:calc(var(--tx)*1.1);margin-top:3px}
+.cnt{font-size:calc(var(--fs)*1.3);color:#fff;text-shadow:0 1px 4px #000;font-weight:800}
 .msg{flex:1;font-size:var(--tx);line-height:1.25;min-height:34px}
 .msg.err{color:#ffab91}
 .pend{margin:0 8px 4px;padding:4px 6px;border:1px dashed #ffd54f;border-radius:10px}
@@ -198,7 +199,7 @@ const BOTS=['Anna','Bruno','Carla'];
 
 function startGame(n,allBots){
   G={players:[{name:'Tu',human:!allBots,hand:[],opened:false,score:0,out:false}],stock:[],discard:[],melds:[],pending:[],sel:new Set(),
-     turn:0,phase:'wait',mustUse:null,newId:null,msg:'',err:false,round:0,dealer:n,sortMode:0,over:false,rows:null,turns:0};
+     turn:0,phase:'wait',mustUse:null,newId:null,msg:'',err:false,round:0,dealer:n,sortMode:0,over:false,rows:null,turns:0,target:TARGETV[OPT.game]};
   for(let i=0;i<n;i++)G.players.push({name:BOTS[i],human:false,hand:[],opened:false,score:0,out:false});
   UI.menu=false;UI.rules=false;
   newRound();
@@ -242,12 +243,12 @@ function endRound(closer){
   G.players.forEach((p,i)=>{
     if(!p.inRound)return;
     const pts=i===closer?0:(closer===-1?sumPen(p.hand):(p.opened?sumPen(p.hand):100));
-    p.score+=pts;if(p.score>=101)p.out=true;
+    p.score+=pts;if(G.target>0&&p.score>=G.target)p.out=true;
     rows.push({name:p.name,pts,score:p.score,out:p.out,opened:p.opened,closer:i===closer});
   });
   G.rows=rows;G.closer=closer;
   const act=G.players.filter(p=>!p.out);
-  if(act.length<=1||G.players[0].out){
+  if(G.target===0||act.length<=1||G.players[0].out){
     G.over=true;
     const pool=act.length?act:G.players;
     G.winner=pool.slice().sort((a,b)=>a.score-b.score)[0].name;
@@ -314,10 +315,13 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const OPT={size:0,rule:0};
-try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=3)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;}catch(e){}
-const SIZES=['Normali','Grandi','Molto grandi','Enormi'],RULES=['Classica: devi usarlo subito','Libera dopo l\'apertura','Libera sempre'];
-function optsHTML(){return`<button class="sec opt" data-act="optsize">🔍 Carte: <b>${SIZES[OPT.size]}</b></button><button class="sec opt" data-act="optrule">🃏 Scarto preso: <b>${RULES[OPT.rule]}</b></button>`;}
+const VERSION='1.1.0',BUILD='21/11/2026';
+const TARGETV=[0,51,101,201];
+const OPT={size:0,rule:0,game:2};
+try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=3)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;}catch(e){}
+const SIZES=['Normali','Grandi','Molto grandi','Enormi'],RULES=['Classica: devi usarlo subito','Libera dopo l\'apertura','Libera sempre'],GAMES=['Secca (una mano)','A 51 punti','A 101 punti','A 201 punti'];
+const verHTML=()=>`<p style="margin:12px 0 0;opacity:.8">Scala 40 · versione <b>${VERSION}</b> (${BUILD})</p>`;
+function optsHTML(){return`<button class="sec opt" data-act="optsize">🔍 Carte: <b>${SIZES[OPT.size]}</b></button><button class="sec opt" data-act="optrule">🃏 Scarto preso: <b>${RULES[OPT.rule]}</b></button><button class="sec opt" data-act="optgame">🎯 Partita: <b>${GAMES[OPT.game]}</b></button>`;}
 function cardHTML(c,o={}){
   const cl=['card'];if(o.sm)cl.push('sm');
   if(c.j)cl.push('joker');else cl.push('k'+c.s);
@@ -329,7 +333,7 @@ const mini=x=>cardHTML(x.c,{sm:1,p:x.p,su:x.su,noid:1});
 function startHTML(){
   return`<div class="ov"><div class="box"><h2>🃏 Scala 40</h2><p>Quanti avversari?</p>
   <button data-act="start" data-n="1">1</button><button data-act="start" data-n="2">2</button><button data-act="start" data-n="3">3</button>
-  ${optsHTML()}<p><button class="sec" data-act="rules">Regole</button></p></div></div>`;
+  ${optsHTML()}<p><button class="sec" data-act="rules">Regole</button></p>${verHTML()}</div></div>`;
 }
 function menuHTML(){
   if(UI.rules)return`<div class="ov"><div class="box"><h2>Regole</h2><ul>
@@ -339,7 +343,7 @@ function menuHTML(){
   <li>Scarto preso: nella regola classica va usato subito (e, se non hai aperto, nell'apertura). Nel menu puoi scegliere di poterlo tenere in mano (vale per te).</li>
   <li>Dopo l'apertura puoi attaccare carte alle combinazioni sul tavolo, anche degli altri: seleziona 1 carta e tocca la combinazione.</li>
   <li>Non puoi scartare una carta che si attacca a una combinazione sul tavolo (salvo l'ultima carta, per chiudere).</li>
-  <li>Si chiude scartando l'ultima carta (tienine sempre una da scartare). Gli altri segnano le carte in mano (jolly 25, A 11, figure 10); chi non ha aperto 100. A 101 si è eliminati.</li></ul>
+  <li>Si chiude scartando l'ultima carta (tienine sempre una da scartare). Gli altri segnano le carte in mano (jolly 25, A 11, figure 10); chi non ha aperto 100. Si gioca una mano (secca) oppure fino al punteggio scelto nel menu: chi lo raggiunge è eliminato.</li></ul>
   <button data-act="rules">Chiudi</button></div></div>`;
 }
 function roundHTML(){
@@ -357,11 +361,11 @@ function gameHTML(){
   const pend=G.pending.length?`<div class="pend"><small>Apertura: ${pt}/40 punti</small><div class="row">${G.pending.map(e=>`<div class="meld">${e.cards.map(mini).join('')}</div>`).join('')}</div></div>`:'';
   const hand=me.hand.map(c=>cardHTML(c,{sel:G.sel.has(c.id),isNew:c.id===G.newId,must:c.id===G.mustUse})).join('');
   const can=myTurn&&G.phase==='play';
-  return`<div class="top"><span>Scala 40 · mano ${G.round} · tu ${me.score} pt${me.opened?' ✓':''}</span><button data-act="menu">☰</button></div>
+  return`<div class="top"><span>Scala 40 · mano ${G.round} · tu ${me.score}${G.target?'/'+G.target:''} pt${me.opened?' ✓':''}</span><button data-act="menu">☰</button></div>
   <div class="opps">${opps}</div>
   <div id="tbl">${melds}</div>
   <div class="piles">
-   <div class="pile${myTurn&&G.phase==='draw'?' hint':''}" data-act="stock"><div class="card back"></div><small>${G.stock.length}</small></div>
+   <div class="pile${myTurn&&G.phase==='draw'?' hint':''}" data-act="stock"><div class="card back"><b class="cnt">${G.stock.length}</b></div><small>mazzo</small></div>
    <div class="pile${myTurn&&G.phase==='draw'?' hint':''}" data-act="disc">${top?cardHTML(top,{noid:1}):'<div class="card ghost"></div>'}<small>scarto</small></div>
    <div class="msg${G.err?' err':''}">${G.msg||''}</div>
   </div>${pend}
@@ -380,7 +384,7 @@ function render(){
   if(G&&G.phase==='roundEnd'&&G.rows)h+=roundHTML();
   if(UI.choose)h+=chooseHTML();
   if(UI.rules)h+=menuHTML();
-  else if(UI.menu)h+=`<div class="ov"><div class="box"><h2>Menu</h2>${optsHTML()}<button data-act="newgame">Nuova partita</button><button class="sec" data-act="rules">Regole</button><button class="sec" data-act="menu">Chiudi</button></div></div>`;
+  else if(UI.menu)h+=`<div class="ov"><div class="box"><h2>Menu</h2>${optsHTML()}<button data-act="newgame">Nuova partita</button><button class="sec" data-act="rules">Regole</button><button class="sec" data-act="menu">Chiudi</button>${verHTML()}</div></div>`;
   app.className='s'+OPT.size;
   app.innerHTML=h;
   const t2=document.getElementById('tbl');if(t2)t2.scrollTop=st;
@@ -405,7 +409,7 @@ function act(a,d){
   if(a==='start'){startGame(+d.n);return;}
   if(a==='rules'){UI.rules=!UI.rules;render();return;}
   if(a==='menu'){UI.menu=!UI.menu;render();return;}
-  if(a==='optsize'||a==='optrule'){OPT[a==='optsize'?'size':'rule']=(OPT[a==='optsize'?'size':'rule']+1)%(a==='optsize'?4:3);try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
+  if(a==='optsize'||a==='optrule'||a==='optgame'){const k=a==='optsize'?'size':a==='optrule'?'rule':'game';OPT[k]=(OPT[k]+1)%(a==='optsize'?4:a==='optrule'?3:4);try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='newgame'){G=null;UI.menu=false;render();return;}
   if(a==='next'){newRound();return;}
   if(!G||G.turn!==0||G.phase==='wait'||G.phase==='roundEnd')return;
