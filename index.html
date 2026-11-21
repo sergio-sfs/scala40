@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Scala 40</title>
+<meta name="theme-color" content="#073b27">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Scala 40">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overscroll-behavior:none;-webkit-user-select:none;user-select:none;touch-action:manipulation;background:#073b27;color:#fff;font-family:-apple-system,system-ui,Segoe UI,Roboto,sans-serif}
+#app{--cw:42px;--ch:60px;--fs:18px;--sw:30px;--sh:42px;--sfs:13px;overflow-y:auto;height:100vh;height:100dvh;display:flex;flex-direction:column;width:100%;position:relative;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+.top{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;font-weight:700}
+.top button{background:#0000004d;color:#fff;border:0;border-radius:8px;font-size:18px;padding:4px 10px}
+.opps{display:flex;gap:6px;padding:0 8px}
+.opp{flex:1;background:#0000003a;border-radius:10px;padding:5px 8px;font-size:13px;border:2px solid transparent;text-align:center}
+.opp.act{border-color:#ffd54f}.opp.out{opacity:.4}
+.opp small{opacity:.8}
+#tbl{flex:1;overflow:auto;margin:6px 8px;background:#0a5a3a;border-radius:12px;padding:6px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px;min-height:80px}
+.empty{opacity:.55;font-size:13px;margin:auto}
+.meld{display:flex;align-items:center;background:#0000002e;border-radius:8px;padding:3px 4px;position:relative;cursor:pointer}
+.meld .card+.card{margin-left:calc(var(--cw)*-.42)}
+.own{font-style:normal;font-size:10px;position:absolute;top:-6px;left:-4px;background:#ffd54f;color:#000;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;font-weight:700;z-index:3}
+.own.o1{background:#80d8ff}.own.o2{background:#ff9e80}.own.o3{background:#ccff90}
+.piles{display:flex;align-items:center;gap:12px;padding:4px 12px}
+.pile{position:relative;text-align:center;font-size:11px}
+.pile.hint .card{box-shadow:0 0 0 3px #ffd54f}
+.pile small{display:block;opacity:.8}
+.msg{flex:1;font-size:13px;line-height:1.25;min-height:34px}
+.msg.err{color:#ffab91}
+.pend{margin:0 8px 4px;padding:4px 6px;border:1px dashed #ffd54f;border-radius:10px}
+.pend .row{display:flex;flex-wrap:wrap;gap:6px;margin-top:3px}
+.hand{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;padding:12px 6px 4px;min-height:98px}
+.card{width:var(--cw);height:var(--ch);border-radius:6px;background:#fff;color:#111;border:1px solid #bbb;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs);line-height:1.05;user-select:none;flex:0 0 auto;position:relative;transition:transform .12s}
+.card.k0{color:#111}
+.card.k1{color:#d32f2f;background:#fff1f1}
+.card.k2{color:#1565c0;background:#eaf2ff}
+.card.k3{color:#2e7d32;background:#ebf8ee}
+.card .su{font-size:calc(var(--fs)*1.3)}
+.hand .card{touch-action:none;-webkit-touch-callout:none}
+.card.dropL{box-shadow:-5px 0 0 #80d8ff}
+.card.dropR{box-shadow:5px 0 0 #80d8ff}
+.card.sel{transform:translateY(-10px);box-shadow:0 0 0 3px #ffd54f}
+.card.must{box-shadow:0 0 0 3px #80d8ff}
+.card.new::after{content:"";position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:#00c853}
+.card.joker{color:#6a1b9a;background:#f3e5f5}
+.card .tiny{font-size:11px}
+.card.back{background:repeating-linear-gradient(45deg,#1e4d8c,#1e4d8c 4px,#2a62ae 4px,#2a62ae 8px);border:2px solid #fff}
+.card.ghost{background:#0000002e;border:1px dashed #fff6}
+.card.sm{width:var(--cw);height:var(--ch);font-size:var(--fs)}
+.card.sm .su{font-size:calc(var(--fs)*1.3)}
+.btns{display:flex;gap:6px;padding:6px 8px 8px}
+.btns button{flex:1;padding:12px 4px;font-size:16px;font-weight:700;border:0;border-radius:10px;background:#ffd54f;color:#222}
+.btns button:disabled{opacity:.35}
+.btns button.sec{background:#ffffff33;color:#fff;flex:0 0 52px}
+.ov{position:absolute;inset:0;background:#000000c8;display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.box{background:#0d4d33;border-radius:16px;padding:18px;width:100%;max-height:100%;overflow:auto}
+.box h2{margin:0 0 10px}
+.box button{background:#ffd54f;color:#222;border:0;border-radius:10px;font-size:16px;font-weight:700;padding:11px 14px;margin:4px 4px 0 0}
+.box button.sec{background:#ffffff33;color:#fff}
+.box table{width:100%;border-collapse:collapse;margin:8px 0}
+.box td,.box th{padding:5px;text-align:left;border-bottom:1px solid #ffffff22}
+.box ul{padding-left:18px;font-size:14px;line-height:1.4;margin:6px 0}
+#app.s1{--cw:52px;--ch:74px;--fs:22px;--sw:36px;--sh:50px;--sfs:15px}
+#app.s2{--cw:60px;--ch:86px;--fs:26px;--sw:42px;--sh:58px;--sfs:17px}
+#app.s3{--cw:72px;--ch:102px;--fs:31px;--sw:48px;--sh:68px;--sfs:20px}
+.chrow{display:flex;padding:4px 0}.chrow .card+.card{margin-left:calc(var(--cw)*-.42)}
+.box .opt{display:block;width:100%;text-align:left;margin:6px 0}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/*ENGINE*/
+const SUITS=['♠','♥','♦','♣'],RED=[false,true,true,false];
+let SPEED=1;const sleep=ms=>new Promise(r=>setTimeout(r,ms*SPEED));
+let uid=0;
+function makeDeck(){const d=[];for(let k=0;k<2;k++)for(let s=0;s<4;s++)for(let r=1;r<=13;r++)d.push({id:uid++,s,r});for(let j=0;j<4;j++)d.push({id:uid++,s:-1,r:0,j:true});return d;}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+const rk=p=>(p===14||p===1)?'A':p===11?'J':p===12?'Q':p===13?'K':String(p);
+const posVal=p=>p===14?11:p===1?1:Math.min(p,10);
+const penalty=c=>c.j?25:c.r===1?11:Math.min(c.r,10);
+const cs=c=>c.j?'il Jolly':rk(c.r)+SUITS[c.s];
+
+// Valuta un gruppo di carte: ritorna {type,pts,cards:[{c,p}]} oppure null
+// Tutte le disposizioni valide di un gruppo di carte (la prima e' quella predefinita)
+function evalAll(cards){
+  const n=cards.length;if(n<3)return[];
+  const jk=cards.filter(c=>c.j),rl=cards.filter(c=>!c.j);
+  if(jk.length>1||rl.length<2)return[];
+  if(n<=4&&rl.every(c=>c.r===rl[0].r)&&new Set(rl.map(c=>c.s)).size===rl.length){
+    const r=rl[0].r,v=r===1?11:Math.min(r,10);
+    const mk=su=>({type:'set',pts:v*n,cards:[...rl,...jk].map(c=>({c,p:r,su:c.j?su:undefined}))});
+    if(!jk.length)return[mk()];
+    // seme del jolly: predefinito "come quando fuori piove" (quadri chiama fiori, picche chiama cuori)
+    const have=new Set(rl.map(c=>c.s)),miss=[0,1,2,3].filter(x=>!have.has(x)),pair={2:3,0:1,3:2,1:0};
+    let su=miss[0];
+    if(miss.length>1)for(const x of[2,0,3,1])if(have.has(x)&&miss.includes(pair[x])){su=pair[x];break;}
+    return[su,...miss.filter(x=>x!==su)].map(mk);
+  }
+  const suit=rl[0].s;if(!rl.every(c=>c.s===suit))return[];
+  const out=[],seen=new Set();
+  for(const hi of[false,true]){
+    const lo=hi?2:1,up=hi?14:13;
+    const ps=rl.map(c=>c.r===1?(hi?14:1):c.r);
+    if(new Set(ps).size!==ps.length)continue;
+    const mn=Math.min(...ps),mx=Math.max(...ps);
+    const gaps=(mx-mn+1)-rl.length,jleft=jk.length-gaps;
+    if(jleft<0)continue;
+    const opts=[];
+    if(jleft===0)opts.push([mn,mx]);
+    else{if(mx+1<=up)opts.push([mn,mx+1]);if(mn-1>=lo)opts.push([mn-1,mx]);}
+    for(const[a,b]of opts){
+      if(b-a+1!==n)continue;
+      const m=new Map(ps.map((p,i)=>[p,rl[i]]));
+      const seq=[];let pts=0,key='';
+      for(let p=a;p<=b;p++){const jj=!m.has(p);seq.push({c:jj?jk[0]:m.get(p),p,su:jj?suit:undefined});pts+=posVal(p);key+=p+(jj?'J':'')+',';}
+      if(seen.has(key))continue;seen.add(key);
+      out.push({type:'run',pts,cards:seq});
+    }
+  }
+  return out.sort((x,y)=>y.pts-x.pts);
+}
+function evalMeld(cards){return evalAll(cards)[0]||null;}
+
+function subsets(av){const out=[],n=av.length;for(let m=1;m<(1<<n);m++){const s=[];for(let i=0;i<n;i++)if(m&(1<<i))s.push(av[i]);if(s.length>=2)out.push(s);}return out;}
+
+// Trova la miglior combinazione di gruppi disgiunti nella mano (per i bot)
+function solve(hand,must){
+  const cnt=Array.from({length:4},()=>Array(15).fill(0)),inst={},jokers=[];
+  for(const c of hand){if(c.j)jokers.push(c);else{cnt[c.s][c.r]++;(inst[c.s+'-'+c.r]=inst[c.s+'-'+c.r]||[]).push(c);}}
+  const jn=jokers.length,shapes=[];
+  for(let r=1;r<=13;r++){
+    const av=[0,1,2,3].filter(s=>cnt[s][r]>0),v=r===1?11:Math.min(r,10);
+    for(const sub of subsets(av)){
+      if(sub.length>=3)shapes.push({items:sub.map(s=>[s,r]),j:0,pts:v*sub.length});
+      if(sub.length<=3&&jn>0)shapes.push({items:sub.map(s=>[s,r]),j:1,pts:v*(sub.length+1)});
+    }
+  }
+  for(let s=0;s<4;s++)for(let a=1;a<=14;a++)for(let b=a+2;b<=14;b++){
+    if(b-a+1>13)continue;
+    let miss=0,pts=0;const items=[];
+    for(let p=a;p<=b;p++){const r=p===14?1:p;if(cnt[s][r]>0)items.push([s,r]);else miss++;pts+=posVal(p);}
+    if(miss>1||(miss===1&&jn===0)||items.length<2)continue;
+    shapes.push({items,j:miss,pts});
+  }
+  const hasMust=sel=>!must||sel.some(sh=>must.j?sh.j>0:sh.items.some(([s,r])=>s===must.s&&r===must.r));
+  let best=null,nodes=0;const used=[];
+  (function dfs(i,pts,ju){
+    if(++nodes>150000)return;
+    if(used.length&&(!best||pts>best.pts)&&hasMust(used))best={pts,sel:used.slice()};
+    for(let k=i;k<shapes.length;k++){
+      const sh=shapes[k];if(ju+sh.j>jn)continue;
+      let ok=true;
+      for(const[s,r]of sh.items){cnt[s][r]--;if(cnt[s][r]<0)ok=false;}
+      if(ok){used.push(sh);dfs(k,pts+sh.pts,ju+sh.j);used.pop();}
+      for(const[s,r]of sh.items)cnt[s][r]++;
+    }
+  })(0,0,0);
+  if(!best)return null;
+  const pool={};for(const k in inst)pool[k]=inst[k].slice();const jp=jokers.slice();
+  const melds=best.sel.map(sh=>{const cs_=sh.items.map(([s,r])=>pool[s+'-'+r].pop());for(let q=0;q<sh.j;q++)cs_.push(jp.pop());return cs_;});
+  return{melds,pts:best.pts};
+}
+
+function pickDiscard(hand){
+  let best=null,bs=1e9;
+  for(const c of hand){
+    if(c.j)continue;
+    if(hand.length>1&&tryAttach(c))continue;
+    let sc=0;
+    for(const d of hand){
+      if(d===c||d.j)continue;
+      if(d.r===c.r)sc+=d.s!==c.s?3:0.5;
+      else if(d.s===c.s){const df=Math.abs(d.r-c.r);if(df===1)sc+=3;else if(df===2)sc+=1.5;else if(df===12)sc+=3;else if(df===11)sc+=1.5;}
+    }
+    sc-=penalty(c)*0.05;
+    if(sc<bs){bs=sc;best=c;}
+  }
+  return best||hand[0];
+}
+
+/* ===== Stato di gioco ===== */
+let G=null;const UI={menu:false,rules:false};
+const H=()=>G.players[0];
+const say=(m,err)=>{G.msg=m;G.err=!!err;};
+const nextActive=i=>{let j=i;do{j=(j+1)%G.players.length;}while(G.players[j].out);return j;};
+const sumPen=h=>h.reduce((s,c)=>s+penalty(c),0);
+const BOTS=['Anna','Bruno','Carla'];
+
+function startGame(n,allBots){
+  G={players:[{name:'Tu',human:!allBots,hand:[],opened:false,score:0,out:false}],stock:[],discard:[],melds:[],pending:[],sel:new Set(),
+     turn:0,phase:'wait',mustUse:null,newId:null,msg:'',err:false,round:0,dealer:n,sortMode:0,over:false,rows:null,turns:0};
+  for(let i=0;i<n;i++)G.players.push({name:BOTS[i],human:false,hand:[],opened:false,score:0,out:false});
+  UI.menu=false;UI.rules=false;
+  newRound();
+}
+function newRound(){
+  G.stock=shuffle(makeDeck());G.discard=[];G.melds=[];G.pending=[];G.sel=new Set();G.mustUse=null;G.newId=null;G.rows=null;G.turns=0;
+  for(const p of G.players){p.hand=[];p.opened=false;p.inRound=!p.out;}
+  for(const p of G.players)if(!p.out)for(let i=0;i<13;i++)p.hand.push(G.stock.pop());
+  G.discard.push(G.stock.pop());
+  if(G.round>0)G.dealer=nextActive(G.dealer);
+  G.round++;G.turn=nextActive(G.dealer);
+  if(G.players[0].human)sortHand();
+  startTurn();
+}
+function sortHand(){
+  const key=c=>c.j?[9,99]:(G.sortMode===0?[c.s,c.r]:[c.r,c.s]);
+  H().hand.sort((a,b)=>{const x=key(a),y=key(b);return x[0]-y[0]||x[1]-y[1];});
+}
+function drawStock(){
+  if(!G.stock.length){
+    if(G.discard.length>1){const top=G.discard.pop();G.stock=shuffle(G.discard);G.discard=[top];}
+    else return null;
+  }
+  return G.stock.pop();
+}
+async function startTurn(){
+  const g=G;
+  if(++G.turns>400){endRound(-1);return;}
+  const p=G.players[G.turn];
+  G.sel.clear();G.mustUse=null;G.acted=false;
+  if(p.human){G.phase='draw';say('Tocca a te: pesca dal mazzo o prendi lo scarto.');render();return;}
+  G.phase='wait';say(p.name+' sta giocando…');render();
+  await sleep(700);if(G!==g)return;
+  await botTurn(G.turn,g);
+}
+function endTurn(){G.turn=nextActive(G.turn);startTurn();}
+
+function endRound(closer){
+  if(G.pending.length){for(const e of G.pending)H().hand.push(...e.cards.map(x=>x.c));G.pending=[];}
+  G.phase='roundEnd';const rows=[];
+  G.players.forEach((p,i)=>{
+    if(!p.inRound)return;
+    const pts=i===closer?0:(closer===-1?sumPen(p.hand):(p.opened?sumPen(p.hand):100));
+    p.score+=pts;if(p.score>=101)p.out=true;
+    rows.push({name:p.name,pts,score:p.score,out:p.out,opened:p.opened,closer:i===closer});
+  });
+  G.rows=rows;G.closer=closer;
+  const act=G.players.filter(p=>!p.out);
+  if(act.length<=1||G.players[0].out){
+    G.over=true;
+    const pool=act.length?act:G.players;
+    G.winner=pool.slice().sort((a,b)=>a.score-b.score)[0].name;
+  }
+  render();
+}
+
+/* ===== Bot ===== */
+function tryAttach(card){
+  for(let i=0;i<G.melds.length;i++){
+    const m=G.melds[i],ev=evalMeld(m.cards.map(x=>x.c).concat([card]));
+    if(ev&&ev.type===m.type)return{i,ev};
+  }
+  return null;
+}
+async function botTurn(i,g){
+  const P=G.players[i];const acts=[];
+  const top=G.discard[G.discard.length-1];
+  let took=false,must=null;
+  if(top){
+    must=top.j?{j:true}:{s:top.s,r:top.r};
+    const sol=solve(P.hand.concat([top]),must);
+    if(sol&&(P.opened||sol.pts>=40)){G.discard.pop();P.hand.push(top);took=true;acts.push('prende '+cs(top)+' dallo scarto');}
+  }
+  if(!took){const c=drawStock();if(!c){endRound(-1);return;}P.hand.push(c);acts.push('pesca dal mazzo');}
+  say(P.name+' '+acts[0]+'.');render();await sleep(800);if(G!==g)return;
+  const sol=solve(P.hand,took?must:null);
+  if(sol&&(P.opened||sol.pts>=40)){
+    let melds=sol.melds.slice();
+    if(melds.reduce((a,m)=>a+m.length,0)>=P.hand.length){
+      const k=melds.findIndex(m=>m.length>3);
+      if(k>=0){for(let q=0;q<melds[k].length;q++){const t=melds[k].filter((_,x)=>x!==q);if(evalMeld(t)){melds[k]=t;break;}}}
+      else melds.pop();
+    }
+    const tot=melds.reduce((a,m)=>{const e=evalMeld(m);return a+(e?e.pts:0);},0);
+    if(!P.opened&&tot<40)melds=[];
+    let n=0;
+    for(const m of melds){
+      const ev=evalMeld(m);if(!ev)continue;
+      const ids=new Set(m.map(c=>c.id));P.hand=P.hand.filter(c=>!ids.has(c.id));
+      G.melds.push({owner:i,...ev});n++;
+    }
+    if(n){P.opened=true;acts.push(n===1?'cala una combinazione':'cala '+n+' combinazioni');say(P.name+' '+acts[acts.length-1]+'.');render();await sleep(900);if(G!==g)return;}
+  }
+  if(P.opened){
+    let again=true,att=0;
+    while(again&&P.hand.length>1){
+      again=false;
+      for(const c of P.hand.slice()){
+        if(c.j||P.hand.length<=1)continue;
+        const a=tryAttach(c);
+        if(a){G.melds[a.i].cards=a.ev.cards;G.melds[a.i].pts=a.ev.pts;P.hand=P.hand.filter(x=>x.id!==c.id);att++;again=true;break;}
+      }
+    }
+    if(att){say(P.name+' attacca '+att+(att===1?' carta':' carte')+'.');render();await sleep(800);if(G!==g)return;}
+  }
+  if(!P.hand.length){say(P.name+' chiude la mano!');endRound(i);return;}
+  const d=pickDiscard(P.hand);
+  P.hand=P.hand.filter(c=>c.id!==d.id);G.discard.push(d);
+  if(!P.hand.length){endRound(i);return;}
+  say(P.name+' scarta '+cs(d)+'.');render();await sleep(500);if(G!==g)return;
+  endTurn();
+}
+/*ENDENGINE*/
+
+/* ===== Interfaccia ===== */
+const OPT={size:0,rule:0};
+try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=3)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;}catch(e){}
+const SIZES=['Normali','Grandi','Molto grandi','Enormi'],RULES=['Classica: devi usarlo subito','Libera dopo l\'apertura','Libera sempre'];
+function optsHTML(){return`<button class="sec opt" data-act="optsize">🔍 Carte: <b>${SIZES[OPT.size]}</b></button><button class="sec opt" data-act="optrule">🃏 Scarto preso: <b>${RULES[OPT.rule]}</b></button>`;}
+function cardHTML(c,o={}){
+  const cl=['card'];if(o.sm)cl.push('sm');
+  if(c.j)cl.push('joker');else cl.push('k'+c.s);
+  if(o.sel)cl.push('sel');if(o.isNew)cl.push('new');if(o.must)cl.push('must');
+  const inner=c.j?`<span>★</span><span class="tiny">${o.p?rk(o.p)+(o.su!==undefined?SUITS[o.su]:''):'JOLLY'}</span>`:`<span>${rk(c.r)}</span><span class="su">${SUITS[c.s]}</span>`;
+  return`<div class="${cl.join(' ')}" ${o.noid?'':`data-act="card" data-id="${c.id}"`}>${inner}</div>`;
+}
+const mini=x=>cardHTML(x.c,{sm:1,p:x.p,su:x.su,noid:1});
+function startHTML(){
+  return`<div class="ov"><div class="box"><h2>🃏 Scala 40</h2><p>Quanti avversari?</p>
+  <button data-act="start" data-n="1">1</button><button data-act="start" data-n="2">2</button><button data-act="start" data-n="3">3</button>
+  ${optsHTML()}<p><button class="sec" data-act="rules">Regole</button></p></div></div>`;
+}
+function menuHTML(){
+  if(UI.rules)return`<div class="ov"><div class="box"><h2>Regole</h2><ul>
+  <li>2 mazzi + 4 jolly, 13 carte a testa. Turno: pesca (mazzo o scarto) → cala/attacca → scarta.</li>
+  <li><b>Tris</b>: stesso valore, semi diversi (3–4). <b>Scala</b>: ≥3 carte consecutive dello stesso seme; asso basso (A-2-3) o alto (Q-K-A). Max 1 jolly per combinazione.</li>
+  <li><b>Apertura</b>: le prime combinazioni devono valere ≥40 punti insieme (A=11, figure=10, jolly = carta sostituita).</li>
+  <li>Scarto preso: nella regola classica va usato subito (e, se non hai aperto, nell'apertura). Nel menu puoi scegliere di poterlo tenere in mano (vale per te).</li>
+  <li>Dopo l'apertura puoi attaccare carte alle combinazioni sul tavolo, anche degli altri: seleziona 1 carta e tocca la combinazione.</li>
+  <li>Non puoi scartare una carta che si attacca a una combinazione sul tavolo (salvo l'ultima carta, per chiudere).</li>
+  <li>Si chiude scartando l'ultima carta (tienine sempre una da scartare). Gli altri segnano le carte in mano (jolly 25, A 11, figure 10); chi non ha aperto 100. A 101 si è eliminati.</li></ul>
+  <button data-act="rules">Chiudi</button></div></div>`;
+}
+function roundHTML(){
+  const rows=G.rows.map(r=>`<tr><td>${r.name}${r.closer?' 🏁':''}${r.out?' ❌':''}</td><td>+${r.pts}${!r.closer&&!r.opened&&G.closer!==-1?' (non aperto)':''}</td><td><b>${r.score}</b></td></tr>`).join('');
+  const t=G.closer===-1?'Mazzo esaurito':G.closer===0?'Hai chiuso la mano! 🎉':G.players[G.closer].name+' ha chiuso la mano';
+  return`<div class="ov"><div class="box"><h2>${t}</h2><table><tr><th>Giocatore</th><th>Mano</th><th>Totale</th></tr>${rows}</table>
+  ${G.over?`<h3>Partita finita: vince ${G.winner==='Tu'?'tu! 🏆':G.winner}</h3><button data-act="newgame">Nuova partita</button>`:`<button data-act="next">Prossima mano</button>`}</div></div>`;
+}
+function gameHTML(){
+  const me=H(),myTurn=G.turn===0&&G.phase!=='roundEnd'&&G.phase!=='wait';
+  const top=G.discard[G.discard.length-1];
+  const opps=G.players.slice(1).map((p,k)=>`<div class="opp${G.turn===k+1&&G.phase!=='roundEnd'?' act':''}${p.out?' out':''}"><b>${p.name}</b>${p.opened?' ✓':''}<br><small>${p.hand.length} carte · ${p.score} pt</small></div>`).join('');
+  const melds=G.melds.map((m,i)=>`<div class="meld" data-act="meld" data-i="${i}"><i class="own o${m.owner}">${G.players[m.owner].name[0]}</i>${m.cards.map(mini).join('')}</div>`).join('')||'<div class="empty">Nessuna combinazione sul tavolo</div>';
+  const pt=G.pending.reduce((s,e)=>s+e.pts,0);
+  const pend=G.pending.length?`<div class="pend"><small>Apertura: ${pt}/40 punti</small><div class="row">${G.pending.map(e=>`<div class="meld">${e.cards.map(mini).join('')}</div>`).join('')}</div></div>`:'';
+  const hand=me.hand.map(c=>cardHTML(c,{sel:G.sel.has(c.id),isNew:c.id===G.newId,must:c.id===G.mustUse})).join('');
+  const can=myTurn&&G.phase==='play';
+  return`<div class="top"><span>Scala 40 · mano ${G.round} · tu ${me.score} pt${me.opened?' ✓':''}</span><button data-act="menu">☰</button></div>
+  <div class="opps">${opps}</div>
+  <div id="tbl">${melds}</div>
+  <div class="piles">
+   <div class="pile${myTurn&&G.phase==='draw'?' hint':''}" data-act="stock"><div class="card back"></div><small>${G.stock.length}</small></div>
+   <div class="pile${myTurn&&G.phase==='draw'?' hint':''}" data-act="disc">${top?cardHTML(top,{noid:1}):'<div class="card ghost"></div>'}<small>scarto</small></div>
+   <div class="msg${G.err?' err':''}">${G.msg||''}</div>
+  </div>${pend}
+  <div class="hand">${hand}</div>
+  <div class="btns">
+   <button class="sec" data-act="sort" title="Ordina">⇅</button>
+   ${can&&G.mustUse!==null&&!G.acted?'<button class="sec" data-act="putback" title="Rimetti lo scarto">↩</button>':''}
+   <button data-act="lay" ${can&&G.sel.size>=3?'':'disabled'}>Cala</button>
+   ${G.pending.length?`<button data-act="open" ${pt>=40?'':'disabled'}>Apri</button><button data-act="undo">Annulla</button>`:''}
+   <button data-act="discard" ${can&&G.sel.size===1?'':'disabled'}>Scarta</button>
+  </div>`;
+}
+function render(){
+  const app=document.getElementById('app'),tb=document.getElementById('tbl'),st=tb?tb.scrollTop:0;
+  let h=G?gameHTML():startHTML();
+  if(G&&G.phase==='roundEnd'&&G.rows)h+=roundHTML();
+  if(UI.choose)h+=chooseHTML();
+  if(UI.rules)h+=menuHTML();
+  else if(UI.menu)h+=`<div class="ov"><div class="box"><h2>Menu</h2>${optsHTML()}<button data-act="newgame">Nuova partita</button><button class="sec" data-act="rules">Regole</button><button class="sec" data-act="menu">Chiudi</button></div></div>`;
+  app.className='s'+OPT.size;
+  app.innerHTML=h;
+  const t2=document.getElementById('tbl');if(t2)t2.scrollTop=st;
+}
+function toast(m){say(m,true);render();}
+function layMeld(ev,cards){
+  const me=H(),ids=new Set(cards.map(c=>c.id));
+  me.hand=me.hand.filter(c=>!ids.has(c.id));G.sel.clear();
+  if(me.opened){G.acted=true;G.melds.push({owner:0,...ev});say('Combinazione calata (+'+ev.pts+').');if(closeIfEmpty())return;}
+  else{G.pending.push(ev);const t=G.pending.reduce((s,e)=>s+e.pts,0);say(t>=40?'Raggiunti '+t+' punti: premi Apri.':'Apertura: '+t+'/40 punti. Aggiungi altre combinazioni.');}
+  render();
+}
+function chooseHTML(){
+  const hasSet=UI.choose.opts[0].type==='set';
+  return`<div class="ov"><div class="box"><h2>${hasSet?'Che seme ha il jolly?':'Dove metti il jolly?'}</h2><p style="font-size:13px;opacity:.85;margin:0 0 6px">Tocca la disposizione che vuoi calare.</p>
+  ${UI.choose.opts.map((o,k)=>`<button class="sec opt" data-act="pick" data-k="${k}"><div class="chrow">${o.cards.map(mini).join('')}</div></button>`).join('')}
+  <button class="sec" data-act="pickcancel">Annulla</button></div></div>`;
+}
+function closeIfEmpty(){if(!H().hand.length&&!G.pending.length){say('Hai chiuso!');endRound(0);return true;}return false;}
+
+function act(a,d){
+  if(a==='start'){startGame(+d.n);return;}
+  if(a==='rules'){UI.rules=!UI.rules;render();return;}
+  if(a==='menu'){UI.menu=!UI.menu;render();return;}
+  if(a==='optsize'||a==='optrule'){OPT[a==='optsize'?'size':'rule']=(OPT[a==='optsize'?'size':'rule']+1)%(a==='optsize'?4:3);try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
+  if(a==='newgame'){G=null;UI.menu=false;render();return;}
+  if(a==='next'){newRound();return;}
+  if(!G||G.turn!==0||G.phase==='wait'||G.phase==='roundEnd')return;
+  const me=H();
+  switch(a){
+    case'stock':{
+      if(G.phase!=='draw')return;
+      const c=drawStock();if(!c){endRound(-1);return;}
+      me.hand.push(c);G.newId=c.id;G.phase='play';say('Hai pescato '+cs(c)+'. Cala, attacca o scarta.');render();break;}
+    case'disc':{
+      if(G.phase!=='draw')return;
+      const top=G.discard[G.discard.length-1];if(!top)return;
+      const free=OPT.rule===2||(OPT.rule===1&&me.opened);
+      G.discard.pop();me.hand.push(top);G.mustUse=free?null:top.id;G.newId=free?top.id:null;G.phase='play';G.acted=false;
+      say(free?'Hai preso '+cs(top)+': puoi tenerlo in mano.':'Hai preso '+cs(top)+': usalo in una combinazione, oppure premi ↩ per rimetterlo e pescare dal mazzo.');render();break;}
+    case'putback':{
+      if(G.phase!=='play'||G.mustUse===null||G.acted||!me.hand.some(c=>c.id===G.mustUse)){toast('Non puoi più rimetterlo a posto.');return;}
+      for(const e of G.pending)me.hand.push(...e.cards.map(x=>x.c));
+      G.pending=[];G.sel.clear();
+      const card=me.hand.find(c=>c.id===G.mustUse);
+      me.hand=me.hand.filter(c=>c.id!==card.id);G.discard.push(card);
+      G.mustUse=null;G.phase='draw';say('Scarto rimesso a posto: ora pesca dal mazzo.');render();break;}
+    case'card':{
+      const id=+d.id;G.sel.has(id)?G.sel.delete(id):G.sel.add(id);render();break;}
+    case'sort':{G.sortMode=1-G.sortMode;sortHand();render();break;}
+    case'lay':{
+      if(G.phase!=='play')return;
+      const cards=me.hand.filter(c=>G.sel.has(c.id)),opts=evalAll(cards);
+      if(!opts.length){toast('Combinazione non valida: tris di semi diversi o scala dello stesso seme (max 1 jolly).');return;}
+      if(cards.length>=me.hand.length){toast('Devi tenere almeno una carta da scartare: si chiude con lo scarto.');return;}
+      if(opts.length>1){UI.choose={cards,opts};render();return;}
+      layMeld(opts[0],cards);break;}
+    case'pick':{
+      if(!UI.choose)return;
+      const ev=UI.choose.opts[+d.k],cards=UI.choose.cards;UI.choose=null;
+      if(ev)layMeld(ev,cards);else render();break;}
+    case'pickcancel':{UI.choose=null;render();break;}
+    case'undo':{
+      for(const e of G.pending)me.hand.push(...e.cards.map(x=>x.c));
+      G.pending=[];say('Combinazioni rimesse in mano.');render();break;}
+    case'open':{
+      const t=G.pending.reduce((s,e)=>s+e.pts,0);
+      if(t<40){toast('Servono almeno 40 punti per aprire.');return;}
+      for(const e of G.pending)G.melds.push({owner:0,...e});
+      G.pending=[];me.opened=true;G.acted=true;say('Aperto con '+t+' punti! Ora puoi attaccare carte.');
+      if(closeIfEmpty())return;render();break;}
+    case'meld':{
+      if(G.phase!=='play')return;
+      if(!me.opened){toast('Devi prima aprire con 40 punti.');return;}
+      if(!G.sel.size){toast('Seleziona una o più carte da attaccare.');return;}
+      const picked=me.hand.filter(c=>G.sel.has(c.id)),m=G.melds[+d.i];
+      const ev=evalMeld(m.cards.map(x=>x.c).concat(picked));
+      if(!ev||ev.type!==m.type){toast(picked.length>1?'Queste carte non si attaccano qui.':'Questa carta non si attacca qui.');return;}
+      if(picked.length>=me.hand.length){toast('Devi tenere almeno una carta da scartare: si chiude con lo scarto.');return;}
+      G.acted=true;m.cards=ev.cards;m.pts=ev.pts;me.hand=me.hand.filter(c=>!G.sel.has(c.id));G.sel.clear();
+      say(picked.length>1?'Carte attaccate.':'Carta attaccata.');if(closeIfEmpty())return;render();break;}
+    case'discard':{
+      if(G.phase!=='play'||G.sel.size!==1)return;
+      if(G.pending.length){toast('Prima apri (o annulla) le combinazioni in attesa.');return;}
+      if(G.mustUse!==null&&me.hand.some(c=>c.id===G.mustUse)){toast('Devi prima usare la carta presa dallo scarto.');return;}
+      const card=me.hand.find(c=>G.sel.has(c.id));
+      if(!card.j&&me.hand.length>1&&tryAttach(card)){toast('Non puoi scartare '+cs(card)+': si attacca a una combinazione sul tavolo.');return;}
+      me.hand=me.hand.filter(c=>c.id!==card.id);G.discard.push(card);G.sel.clear();
+      if(!me.hand.length){say('Hai chiuso!');endRound(0);return;}
+      say('Hai scartato '+cs(card)+'.');G.newId=null;endTurn();break;}
+  }
+}
+/* Trascinamento carte in mano (riordino manuale) */
+let DR=null,SUPPRESS=0;
+function moveCards(d){
+  const h=H().hand;
+  const grp=(G.sel.has(d.id)&&G.sel.size>1)?h.filter(c=>G.sel.has(c.id)):h.filter(c=>c.id===d.id);
+  const gids=new Set(grp.map(c=>c.id));
+  if(d.tid!==-1&&gids.has(d.tid))return;
+  const rest=h.filter(c=>!gids.has(c.id));
+  const idx=d.tid===-1?rest.length:rest.findIndex(c=>c.id===d.tid)+(d.after?1:0);
+  rest.splice(idx,0,...grp);H().hand=rest;
+}
+function clearMarks(){document.querySelectorAll('.card.dropL,.card.dropR').forEach(x=>x.classList.remove('dropL','dropR'));}
+const appEl=document.getElementById('app');
+appEl.addEventListener('click',e=>{
+  if(Date.now()-SUPPRESS<400)return;
+  const t=e.target.closest('[data-act]');if(t)act(t.dataset.act,t.dataset);
+});
+appEl.addEventListener('pointerdown',e=>{
+  const el=e.target.closest('.hand .card');
+  if(!el||!G||G.phase==='roundEnd')return;
+  DR={id:+el.dataset.id,x:e.clientX,y:e.clientY,on:false,el,tid:null};
+});
+window.addEventListener('pointermove',e=>{
+  if(!DR)return;
+  if(!DR.on){
+    if(Math.hypot(e.clientX-DR.x,e.clientY-DR.y)<10)return;
+    DR.on=true;DR.ghost=DR.el.cloneNode(true);
+    DR.ghost.style.cssText='position:fixed;z-index:50;pointer-events:none;opacity:.9;transform:scale(1.12)';
+    document.body.appendChild(DR.ghost);DR.el.style.opacity='.3';
+  }
+  DR.ghost.style.left=(e.clientX-DR.ghost.offsetWidth/2)+'px';DR.ghost.style.top=(e.clientY-DR.ghost.offsetHeight/2)+'px';
+  clearMarks();DR.tid=null;
+  const t=document.elementFromPoint(e.clientX,e.clientY);
+  const c=t&&t.closest?t.closest('.hand .card'):null;
+  if(c&&+c.dataset.id!==DR.id){
+    DR.tid=+c.dataset.id;DR.after=e.clientX>c.getBoundingClientRect().left+c.offsetWidth/2;
+    c.classList.add(DR.after?'dropR':'dropL');
+  }else if(!c&&t&&t.closest&&t.closest('.hand'))DR.tid=-1;
+});
+function endDrag(){
+  if(!DR)return;const d=DR;DR=null;
+  if(!d.on)return;
+  d.ghost.remove();clearMarks();SUPPRESS=Date.now();
+  if(d.tid!==null&&G)moveCards(d);
+  render();
+}
+window.addEventListener('pointerup',endDrag);
+window.addEventListener('pointercancel',endDrag);
+render();
+if('serviceWorker' in navigator){window.addEventListener('load',()=>{try{navigator.serviceWorker.register('sw.js').catch(()=>{});}catch(e){}});}
+</script>
+</body>
+</html>
