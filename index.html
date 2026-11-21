@@ -315,7 +315,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.1.0',BUILD='21/11/2026';
+const VERSION='1.2.0',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:0,rule:0,game:2};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=3)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;}catch(e){}
@@ -341,7 +341,7 @@ function menuHTML(){
   <li><b>Tris</b>: stesso valore, semi diversi (3–4). <b>Scala</b>: ≥3 carte consecutive dello stesso seme; asso basso (A-2-3) o alto (Q-K-A). Max 1 jolly per combinazione.</li>
   <li><b>Apertura</b>: le prime combinazioni devono valere ≥40 punti insieme (A=11, figure=10, jolly = carta sostituita).</li>
   <li>Scarto preso: nella regola classica va usato subito (e, se non hai aperto, nell'apertura). Nel menu puoi scegliere di poterlo tenere in mano (vale per te).</li>
-  <li>Dopo l'apertura puoi attaccare carte alle combinazioni sul tavolo, anche degli altri: seleziona 1 carta e tocca la combinazione.</li>
+  <li>Dopo l'apertura puoi attaccare carte alle combinazioni sul tavolo, anche degli altri: seleziona le carte e tocca la combinazione. Per prendere un jolly dal tavolo seleziona la carta che lo sostituisce e tocca la combinazione.</li>
   <li>Non puoi scartare una carta che si attacca a una combinazione sul tavolo (salvo l'ultima carta, per chiudere).</li>
   <li>Si chiude scartando l'ultima carta (tienine sempre una da scartare). Gli altri segnano le carte in mano (jolly 25, A 11, figure 10); chi non ha aperto 100. Si gioca una mano (secca) oppure fino al punteggio scelto nel menu: chi lo raggiunge è eliminato.</li></ul>
   <button data-act="rules">Chiudi</button></div></div>`;
@@ -383,6 +383,7 @@ function render(){
   let h=G?gameHTML():startHTML();
   if(G&&G.phase==='roundEnd'&&G.rows)h+=roundHTML();
   if(UI.choose)h+=chooseHTML();
+  if(UI.pick2)h+=pick2HTML();
   if(UI.rules)h+=menuHTML();
   else if(UI.menu)h+=`<div class="ov"><div class="box"><h2>Menu</h2>${optsHTML()}<button data-act="newgame">Nuova partita</button><button class="sec" data-act="rules">Regole</button><button class="sec" data-act="menu">Chiudi</button>${verHTML()}</div></div>`;
   app.className='s'+OPT.size;
@@ -402,6 +403,37 @@ function chooseHTML(){
   return`<div class="ov"><div class="box"><h2>${hasSet?'Che seme ha il jolly?':'Dove metti il jolly?'}</h2><p style="font-size:13px;opacity:.85;margin:0 0 6px">Tocca la disposizione che vuoi calare.</p>
   ${UI.choose.opts.map((o,k)=>`<button class="sec opt" data-act="pick" data-k="${k}"><div class="chrow">${o.cards.map(mini).join('')}</div></button>`).join('')}
   <button class="sec" data-act="pickcancel">Annulla</button></div></div>`;
+}
+// Scambio del jolly: la carta scelta prende il posto del jolly, che torna in mano
+function jokerSwap(m,card){
+  const ji=m.cards.findIndex(x=>x.c.j);if(ji<0||card.j)return null;
+  const jt=m.cards[ji],real=m.cards.filter(x=>!x.c.j).map(x=>x.c);
+  if(m.type==='set'){if(card.r!==jt.p||real.some(c=>c.s===card.s))return null;}
+  else{if(card.s!==real[0].s||card.r!==(jt.p===14?1:jt.p))return null;}
+  const ev=evalMeld([...real,card]);
+  return ev&&ev.type===m.type?{ev,joker:jt.c}:null;
+}
+function doSwap(i){
+  const me=H(),m=G.melds[i],card=me.hand.find(c=>G.sel.has(c.id));
+  const sw=card&&jokerSwap(m,card);if(!sw){toast('Questa carta non sostituisce il jolly.');return;}
+  m.cards=sw.ev.cards;m.pts=sw.ev.pts;
+  me.hand=me.hand.filter(c=>c.id!==card.id);me.hand.push(sw.joker);
+  G.sel.clear();G.newId=sw.joker.id;G.acted=true;
+  say('Hai preso il jolly! Usalo in una combinazione o tienilo in mano.');render();
+}
+function doAttach(i){
+  const me=H(),m=G.melds[i],picked=me.hand.filter(c=>G.sel.has(c.id));
+  const ev=evalMeld(m.cards.map(x=>x.c).concat(picked));
+  if(!ev||ev.type!==m.type){toast(picked.length>1?'Queste carte non si attaccano qui.':'Questa carta non si attacca qui.');return;}
+  if(picked.length>=me.hand.length){toast('Devi tenere almeno una carta da scartare: si chiude con lo scarto.');return;}
+  G.acted=true;m.cards=ev.cards;m.pts=ev.pts;me.hand=me.hand.filter(c=>!G.sel.has(c.id));G.sel.clear();
+  say(picked.length>1?'Carte attaccate.':'Carta attaccata.');if(closeIfEmpty())return;render();
+}
+function pick2HTML(){
+  return`<div class="ov"><div class="box"><h2>Che cosa vuoi fare?</h2>
+  <button class="opt" data-act="swapdo">🔄 Prendi il jolly (al suo posto va la tua carta)</button>
+  <button class="opt" data-act="attachdo">➕ Attacca la carta (il jolly resta)</button>
+  <button class="sec opt" data-act="pick2cancel">Annulla</button></div></div>`;
 }
 function closeIfEmpty(){if(!H().hand.length&&!G.pending.length){say('Hai chiuso!');endRound(0);return true;}return false;}
 
@@ -459,13 +491,17 @@ function act(a,d){
     case'meld':{
       if(G.phase!=='play')return;
       if(!me.opened){toast('Devi prima aprire con 40 punti.');return;}
-      if(!G.sel.size){toast('Seleziona una o più carte da attaccare.');return;}
+      if(!G.sel.size){toast('Seleziona le carte da attaccare (o la carta che sostituisce un jolly).');return;}
       const picked=me.hand.filter(c=>G.sel.has(c.id)),m=G.melds[+d.i];
+      const sw=picked.length===1?jokerSwap(m,picked[0]):null;
       const ev=evalMeld(m.cards.map(x=>x.c).concat(picked));
-      if(!ev||ev.type!==m.type){toast(picked.length>1?'Queste carte non si attaccano qui.':'Questa carta non si attacca qui.');return;}
-      if(picked.length>=me.hand.length){toast('Devi tenere almeno una carta da scartare: si chiude con lo scarto.');return;}
-      G.acted=true;m.cards=ev.cards;m.pts=ev.pts;me.hand=me.hand.filter(c=>!G.sel.has(c.id));G.sel.clear();
-      say(picked.length>1?'Carte attaccate.':'Carta attaccata.');if(closeIfEmpty())return;render();break;}
+      const canAtt=!!ev&&ev.type===m.type&&picked.length<me.hand.length;
+      if(sw&&canAtt){UI.pick2={i:+d.i};render();return;}
+      if(sw){doSwap(+d.i);break;}
+      doAttach(+d.i);break;}
+    case'swapdo':{if(!UI.pick2)return;const i=UI.pick2.i;UI.pick2=null;doSwap(i);break;}
+    case'attachdo':{if(!UI.pick2)return;const i=UI.pick2.i;UI.pick2=null;doAttach(i);break;}
+    case'pick2cancel':{UI.pick2=null;render();break;}
     case'discard':{
       if(G.phase!=='play'||G.sel.size!==1)return;
       if(G.pending.length){toast('Prima apri (o annulla) le combinazioni in attesa.');return;}
