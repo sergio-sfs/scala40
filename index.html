@@ -210,12 +210,13 @@ const H=()=>G.players[0];
 const say=(m,err)=>{G.msg=m;G.err=!!err;};
 const nextActive=i=>{let j=i;do{j=(j+1)%G.players.length;}while(G.players[j].out);return j;};
 const sumPen=h=>h.reduce((s,c)=>s+penalty(c),0);
-const BOTS=['Anna','Bruno','Carla'];
+const BOTS=['Anna','Bruno','Carla','Dario','Elena','Fabio','Giulia','Marta','Nadia','Paolo','Rita','Sandro','Teresa','Ugo','Vera','Enzo','Irene','Gino','Silvia','Renzo','Chiara','Mauro'];
 
 function startGame(n,allBots,pre){
   G={players:[{name:'Tu',human:!allBots,hand:[],opened:false,score:0,out:false}],stock:[],discard:[],melds:[],pending:[],sel:new Set(),
      turn:0,phase:'wait',mustUse:null,newId:null,msg:'',err:false,round:0,dealer:n,sortMode:0,over:false,rows:null,turns:0,target:TARGETV[OPT.game]};
-  for(let i=0;i<n;i++)G.players.push({name:BOTS[i],human:false,hand:[],opened:false,score:0,out:false});
+  const bn=shuffle(BOTS.filter(x=>!(ON&&ON.nicks&&ON.nicks.includes(x))));
+  for(let i=0;i<n;i++)G.players.push({name:bn[i],human:false,hand:[],opened:false,score:0,out:false});
   UI.menu=false;UI.rules=false;
   if(pre)pre(G);
   newRound();
@@ -351,7 +352,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.9.1',BUILD='21/11/2026';
+const VERSION='1.10.0',BUILD='21/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;}catch(e){}
@@ -390,6 +391,7 @@ function menuHTML(){
   <li>Serve la parola d'accesso (te la dà chi ti invita; la scrivi la prima volta su ogni dispositivo). Dal menu iniziale: 🌐 Gioca online → Crea stanza, poi invia link e codice. Gli amici aprono il link, vanno su Gioca online e scrivono parola d'accesso, nome e codice stanza. Chi crea la stanza decide quando avviare e gestisce i passaggi di mano; i posti liberi li occupa il computer. Tutti devono tenere l'app aperta: se qualcuno esce, il computer prende il suo posto.</li></ul>
   <h3 style="margin:12px 0 2px">Comandi</h3><ul>
   <li>Trascina le carte per riordinarle (se ne selezioni più d'una si spostano insieme); ⇅ le ordina; ↔ distanzia le carte sul tavolo.</li>
+  <li>💡 (solo contro il computer) è il tuo istruttore: ti dice se pescare o prendere lo scarto, cosa calare, cosa attaccare e quale carta scartare, e seleziona le carte consigliate. Decidi tu se seguirlo.</li>
   <li>Con la regola classica, se hai preso lo scarto e non ti serve, ↩ lo rimette a posto.</li></ul>
   <button data-act="rules">Chiudi</button></div></div>`;
 }
@@ -422,6 +424,7 @@ function gameHTML(){
    <button class="sec" data-act="sort" title="Ordina">⇅</button>
    <button class="sec${OPT.spread?' on':''}" data-act="spread" title="Carte sul tavolo: sovrapposte o distanziate">↔</button>
    ${can&&G.mustUse!==null&&!G.acted?'<button class="sec" data-act="putback" title="Rimetti lo scarto">↩</button>':''}
+   ${!ON&&myTurn&&(G.phase==='draw'||G.phase==='play')?'<button class="sec" data-act="hint" title="Suggerimento">💡</button>':''}
    <button data-act="lay" ${can&&G.sel.size>=3?'':'disabled'}>Cala</button>
    ${G.pending.length?`<button data-act="open" ${pt>=40?'':'disabled'}>Apri</button><button data-act="undo">Annulla</button>`:''}
    <button data-act="discard" ${can&&G.sel.size===1?'':'disabled'}>Scarta</button>
@@ -466,6 +469,36 @@ function chooseHTML(){
   <button class="sec" data-act="pickcancel">Annulla</button></div></div>`;
 }
 // Scambio del jolly: la carta scelta prende il posto del jolly, che torna in mano
+function coachHint(){
+  const me=H(),hand=me.hand,top=G.discard[G.discard.length-1];
+  if(G.phase==='draw'){
+    if(!top)return{text:'💡 Pesca dal mazzo.'};
+    const must=top.j?{j:true}:{s:top.s,r:top.r};
+    const sol=solve(hand.concat([top]),must);
+    const free=OPT.rule===2||(OPT.rule===1&&me.opened);
+    if(sol&&(me.opened||sol.pts>=40))return{text:'💡 Prendi lo scarto ('+cs(top)+'): con quella carta puoi calare '+sol.pts+' punti.'};
+    if(me.opened&&free&&!top.j&&tryAttach(top))return{text:'💡 Prendi lo scarto ('+cs(top)+'): si attacca a una combinazione sul tavolo.'};
+    return{text:'💡 Pesca dal mazzo: lo scarto ('+cs(top)+') non ti aiuta a calare combinazioni'+(me.opened?'.':' da 40 punti.')};
+  }
+  if(G.phase!=='play')return{text:''};
+  const forced=G.mustUse!==null&&!G.acted?hand.find(c=>c.id===G.mustUse):null;
+  if(me.opened){
+    for(const m of G.melds){if(!m.cards.some(x=>x.c.j))continue;
+      for(const c of hand){if(jokerSwap(m,c))return{text:'💡 Puoi prendere un jolly dal tavolo: seleziona '+cs(c)+' e poi tocca la combinazione con il jolly.',sel:[c.id]};}}
+  }
+  const must=forced?(forced.j?{j:true}:{s:forced.s,r:forced.r}):null;
+  const sol=solve(hand,must,0,{cards:true,minPts:me.opened?0:40,maxCards:hand.length-1});
+  if(sol&&(me.opened||sol.pts>=40)&&sol.melds.length){
+    const first=sol.melds[0],rest=sol.melds.length-1;
+    return{text:'💡 '+(me.opened?'Puoi calare: ':'Puoi aprire! ')+'seleziona le carte evidenziate e premi Cala ('+sol.pts+' punti in tutto'+(rest?', poi le altre '+rest+' combinazioni':'')+').',sel:first.map(c=>c.id)};
+  }
+  if(forced&&!G.acted)return{text:'💡 Con lo scarto che hai preso non riesci a fare una combinazione: premi ↩ per rimetterlo e pescare dal mazzo.'};
+  if(me.opened&&hand.length>1){
+    for(const c of hand){if(!c.j&&tryAttach(c))return{text:'💡 Puoi attaccare '+cs(c)+' a una combinazione sul tavolo: selezionala e tocca la combinazione.',sel:[c.id]};}
+  }
+  const d=pickDiscard(hand,dangerFor(0),0);
+  return{text:'💡 '+(me.opened?'':'Non puoi ancora aprire (servono 40 punti). ')+'Scarta '+cs(d)+': è la carta che ti serve meno e che aiuta meno gli avversari.',sel:[d.id]};
+}
 function jokerSwap(m,card){
   const ji=m.cards.findIndex(x=>x.c.j);if(ji<0||card.j)return null;
   const jt=m.cards[ji],real=m.cards.filter(x=>!x.c.j).map(x=>x.c);
@@ -531,6 +564,7 @@ function act(a,d){
       G.mustUse=null;G.phase='draw';say('Scarto rimesso a posto: ora pesca dal mazzo.');render();break;}
     case'card':{
       const id=+d.id;G.sel.has(id)?G.sel.delete(id):G.sel.add(id);render();break;}
+    case'hint':{if(ON)return;const h=coachHint();G.sel=new Set(h.sel||[]);say(h.text||'');render();break;}
     case'sort':{G.sortMode=1-G.sortMode;sortHand();render();break;}
     case'lay':{
       if(G.phase!=='play')return;
@@ -684,7 +718,7 @@ function hostMsg(c,m){
   if(m.t==='hello'){
     if(ON.state!=='lobby'||ON.nicks.length>=ON.seats){try{c.send({t:'reject',why:ON.state==='lobby'?'Stanza piena.':'Partita già iniziata.'});}catch(e){}return;}
     let nick=String(m.nick||'Ospite').slice(0,12),base=nick,i=2;
-    while(ON.nicks.includes(nick)||nick==='Tu'||BOTS.includes(nick))nick=base+(i++);
+    while(ON.nicks.includes(nick)||nick==='Tu')nick=base+(i++);
     c.nick=nick;c.last=Date.now();ON.nicks.push(nick);ON.conns[nick]=c;lobbyBcast();render();return;
   }
   c.last=Date.now();
