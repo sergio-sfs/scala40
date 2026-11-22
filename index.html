@@ -252,6 +252,7 @@ async function startTurn(){
   const g=G;
   if(++G.turns>400){endRound(-1);return;}
   const p=G.players[G.turn];
+  if(ON&&ON.role==='host')hostSave();
   G.sel.clear();G.mustUse=null;G.acted=false;
   if(p.remote){if(p.conn){G.phase='wait';say(p.name+' sta giocando…');render();sendTurn(G.turn);}else awayTurn(G.turn);return;}
   if(p.human){G.phase='draw';say('Tocca a te: pesca dal mazzo o prendi lo scarto.');render();return;}
@@ -278,6 +279,7 @@ function endRound(closer){
     const pool=act.length?act:G.players;
     G.winner=pool.slice().sort((a,b)=>a.score-b.score)[0].name;
   }
+  if(ON&&ON.role==='host'){if(G.over)hostDrop();else hostSave();}
   render();
 }
 
@@ -358,7 +360,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.11.1',BUILD='22/11/2026';
+const VERSION='1.12.0',BUILD='22/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false,coach:false,net:'p2p'};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;OPT.coach=o.coach===true;OPT.net=o.net==='mqtt'||o.net==='ntfy'?o.net:'p2p';}catch(e){}
@@ -394,7 +396,7 @@ function menuHTML(){
   <li><b>Difficile</b>: sbaglia poco e prende i jolly dal tavolo.</li>
   <li><b>Esperto</b>: non sbaglia occasioni, cala il massimo di carte possibile, scambia i jolly ed evita di scartare ciò che serve agli avversari.</li></ul>
   <h3 style="margin:12px 0 2px">Online con amici</h3><ul>
-  <li>Serve la parola d'accesso (te la dà chi ti invita; la scrivi la prima volta su ogni dispositivo). Dal menu iniziale: 🌐 Gioca online → Crea stanza, poi invia link e codice. Gli amici aprono il link, vanno su Gioca online e scrivono parola d'accesso, nome e codice stanza. Chi crea la stanza decide quando avviare e gestisce i passaggi di mano; i posti liberi li occupa il computer. Tutti devono tenere l'app aperta: se qualcuno esce, il computer prende il suo posto.</li><li><b>Collegamento</b>: «Diretto» va bene con lo stesso Wi-Fi; con la rete mobile (senza Wi-Fi) chi crea la stanza sceglie «MQTT» o «ntfy» (anche in Impostazioni → Online): passa da un servizio pubblico, i messaggi sono cifrati con la parola d'accesso (ntfy è più lento: aggiorna le mosse ogni qualche secondo). Il codice stanza è di 5 caratteri e inizia con M (MQTT) o N (ntfy): gli amici non devono scegliere nulla.</li></ul>
+  <li>Serve la parola d'accesso (te la dà chi ti invita; la scrivi la prima volta su ogni dispositivo). Dal menu iniziale: 🌐 Gioca online → Crea stanza, poi invia link e codice. Gli amici aprono il link, vanno su Gioca online e scrivono parola d'accesso, nome e codice stanza. Chi crea la stanza decide quando avviare e gestisce i passaggi di mano; i posti liberi li occupa il computer. Tutti devono tenere l'app aperta: se qualcuno esce, il computer prende il suo posto. Chi si assenta rientra con lo stesso nome, parola e codice stanza. L'organizzatore ha un salvataggio automatico: se l'app si chiude, da Gioca online → «Riprendi come organizzatore» riapre la stessa stanza (gli amici rientrano come sopra).</li><li><b>Collegamento</b>: «Diretto» va bene con lo stesso Wi-Fi; con la rete mobile (senza Wi-Fi) chi crea la stanza sceglie «MQTT» o «ntfy» (anche in Impostazioni → Online): passa da un servizio pubblico, i messaggi sono cifrati con la parola d'accesso (ntfy è più lento: aggiorna le mosse ogni qualche secondo). Il codice stanza è di 5 caratteri e inizia con M (MQTT) o N (ntfy): gli amici non devono scegliere nulla.</li></ul>
   <h3 style="margin:12px 0 2px">Comandi</h3><ul>
   <li>Trascina le carte per riordinarle (se ne selezioni più d'una si spostano insieme); ⇅ le ordina; ↔ distanzia le carte sul tavolo.</li>
   <li>💡 (solo contro il computer) accende o spegne l'istruttore: quando è acceso (pulsante illuminato) ad ogni tuo passo suggerisce se pescare o prendere lo scarto, cosa calare, cosa attaccare e quale carta scartare, e segna le carte consigliate con un bordo tratteggiato. Decidi tu se seguirlo. Ritoccalo per spegnerlo.</li>
@@ -551,7 +553,7 @@ function act(a,d){
   if(a==='optnet'){OPT.net=NEXTNET[OPT.net]||'p2p';try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='hint'){if(ON)return;OPT.coach=!OPT.coach;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='spread'){OPT.spread=!OPT.spread;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
-  if(/^(online|oback|ocreate|ojoin|oseats|ograce|ostart|oshare|onet)$/.test(a)){onAct(a);return;}
+  if(/^(online|oback|ocreate|ojoin|oseats|ograce|ostart|oshare|onet|oresume|odrop)$/.test(a)){onAct(a);return;}
   if(a==='newgame'){if(ON)leaveOnline();G=null;UI.menu=false;if(tryUpd())return;render();return;}
   if(a==='exit'){if(ON)leaveOnline();G=null;UI.menu=false;if(tryUpd())return;render();return;}
   if(a==='next'){if(ON&&ON.role==='client')return;newRound();return;}
@@ -682,6 +684,16 @@ const PEERCFG={config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:[
 const PEERJS='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js',CODEC='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const getNick=()=>{try{return localStorage.getItem('scala40nick')||'';}catch(e){return'';}};
 const setNick=n=>{try{localStorage.setItem('scala40nick',n);}catch(e){}};
+const HSAVE='scala40host';
+function hostSave(){if(!ON||ON.role!=='host'||!G)return;try{localStorage.setItem(HSAVE,JSON.stringify({v:1,ts:Date.now(),code:ON.code,net:ON.net,seats:ON.seats,grace:ON.grace,nicks:ON.nicks,G:G},(k,v)=>k==='conn'?undefined:(v instanceof Set?Array.from(v):v)));}catch(e){}}
+function hostLoad(){try{const x=JSON.parse(localStorage.getItem(HSAVE)||'null');if(x&&x.v===1&&x.G&&x.code&&Date.now()-x.ts<30*864e5)return x;}catch(e){}return null;}
+const hostDrop=()=>{try{localStorage.removeItem(HSAVE);}catch(e){}};
+function hostRestore(sv){
+  const g=sv.G;g.sel=new Set();g.pending=g.pending||[];g.players.forEach(p=>{delete p.conn;});
+  G=g;ON.state='playing';ON.nicks=sv.nicks;UI.menu=false;UI.rules=false;
+  if(G.phase==='roundEnd'){render();return;}
+  startTurn();
+}
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function loadPeer(cb){if(ON&&(ON.net==='mqtt'||ON.net==='ntfy'))return cb(true);if(typeof Peer!=='undefined')return cb(true);const s=document.createElement('script');s.src=PEERJS;s.onload=()=>cb(true);s.onerror=()=>cb(false);document.head.appendChild(s);}
 /* ===== Collegamento MQTT (alternativa al diretto: funziona anche con la rete mobile) ===== */
@@ -819,7 +831,7 @@ const inviteUrl=()=>location.origin+location.pathname;
 function onlineHTML(){
   const o=ON,players=(o.role==='host'?o.nicks:o.players||[]).map(esc).join(', ');
   let b='';
-  if(o.state==='menu')b=`<h2>🌐 Gioca online</h2><p>Parola d'accesso (te la dà chi ti invita)</p><input id="key" type="password" value="${esc(o.key||'')}" placeholder="Parola"><p>Il tuo nome</p><input id="nick" maxlength="12" value="${esc(o.nick||'')}" placeholder="Nome"><p>Collegamento (se crei tu la stanza):<br><button class="sec" data-act="onet">${NETS[OPT.net]}</button></p><p><button data-act="ocreate">Crea stanza</button></p><p style="margin-top:14px">Hai un codice di invito?</p><input id="code" maxlength="5" value="${esc(o.code||'')}" placeholder="CODICE" style="text-transform:uppercase"><p><button data-act="ojoin">Entra nella stanza</button></p>${o.err?`<p style="color:#ffab91">${esc(o.err)}</p>`:''}<button class="sec" data-act="oback">Indietro</button>`;
+  if(o.state==='menu')b=`<h2>🌐 Gioca online</h2><p>Parola d'accesso (te la dà chi ti invita)</p><input id="key" type="password" value="${esc(o.key||'')}" placeholder="Parola"><p>Il tuo nome</p><input id="nick" maxlength="12" value="${esc(o.nick||'')}" placeholder="Nome"><p>Collegamento (se crei tu la stanza):<br><button class="sec" data-act="onet">${NETS[OPT.net]}</button></p><p><button data-act="ocreate">Crea stanza</button></p><p style="margin-top:14px">Hai un codice di invito?</p><input id="code" maxlength="5" value="${esc(o.code||'')}" placeholder="CODICE" style="text-transform:uppercase"><p><button data-act="ojoin">Entra nella stanza</button></p>${(()=>{const sv=hostLoad();return sv?`<p style="margin-top:14px;border-top:1px solid #fff3;padding-top:10px">▶ Partita salvata: stanza <b>${esc(sv.code)}</b>, ${sv.nicks.map(esc).join(', ')} (${new Date(sv.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})})</p><p><button data-act="oresume">Riprendi come organizzatore</button> <button class="sec" data-act="odrop">Elimina</button></p>`:'';})()}${o.err?`<p style="color:#ffab91">${esc(o.err)}</p>`:''}<button class="sec" data-act="oback">Indietro</button>`;
   else if(o.state==='starting'||o.state==='connecting')b=`<h2>🌐 Connessione…</h2><p>Un attimo.</p><button class="sec" data-act="oback">Annulla</button>`;
   else if(o.state==='lobby')b=`<h2>Stanza <b>${o.code}</b></h2><p>Giocatori (${o.nicks.length}/${o.seats}): <b>${players}</b></p><p>Posti totali: <button class="sec" data-act="oseats">${o.seats}</button><br><small>I posti liberi li occupa il computer.</small></p><p>Attesa se qualcuno si assenta: <button class="sec" data-act="ograce">${o.grace} min</button></p><p><button data-act="oshare">📨 Invita (WhatsApp / condividi)</button></p><p><button data-act="ostart" ${o.nicks.length>=2?'':'disabled'}>Avvia partita</button></p>${o.nicks.length<2?'<small>Aspetta che entri almeno un amico.</small>':''}<p><button class="sec" data-act="oback">Annulla</button></p>`;
   else if(o.state==='waiting')b=`<h2>Stanza <b>${esc(o.code)}</b></h2><p>Giocatori: <b>${players}</b></p><p>In attesa che l'organizzatore avvii la partita…</p><button class="sec" data-act="oback">Esci</button>`;
@@ -829,16 +841,16 @@ function onlineHTML(){
 function leaveOnline(){const o=ON;ON=null;G=null;if(o){clearInterval(o.pt);clearTimeout(o.bt);clearTimeout(o.ct);clearTimeout(o.rt);try{o.wlk&&o.wlk.release();}catch(e){}if(o.graceT)Object.values(o.graceT).forEach(clearTimeout);try{o.peer&&o.peer.destroy();}catch(e){}}}
 function onFail(m){if(!ON)return;ON.err=m;ON.state=(ON.state==='playing'||ON.state==='reconnecting')?'ended':'menu';if(ON.state==='ended'){G=null;}try{ON.peer&&ON.peer.destroy();}catch(e){}render();}
 /* --- host --- */
-function onHost(nick){
+function onHost(nick,sv){
   setTimeout(wake,0);
-  ON={role:'host',state:'starting',nick,seats:3,grace:3,conns:{},nicks:[nick],err:'',code:'',net:OPT.net};render();
+  ON={role:'host',state:'starting',nick,seats:sv?sv.seats:3,grace:sv?sv.grace:3,conns:{},nicks:[nick],err:'',code:'',net:sv?sv.net:OPT.net,resume:sv||null};render();
   ON.pt=setInterval(()=>{if(!ON||ON.role!=='host')return;const now=Date.now();const cs=G?G.players.filter(p=>p.remote&&p.conn).map(p=>p.conn):Object.values(ON.conns);cs.forEach(c=>{if(c.last&&now-c.last>NT().hdrop){try{c.close();}catch(e){}hostLeft(c);}});},5000);
-  loadPeer(ok=>{if(!ON)return;if(!ok){onFail('Serve la connessione internet.');return;}mkPeer();});
+  loadPeer(ok=>{if(!ON)return;if(!ok){onFail('Serve la connessione internet.');return;}mkPeer(sv?sv.code:undefined);});
 }
 function mkPeer(reuse,tries){
   const code=reuse||({mqtt:'M',ntfy:'N'}[ON.net]||'')+Array.from({length:4},()=>CODEC[Math.random()*CODEC.length|0]).join('');
   const p=newPeer(PFX+code);ON.peer=p;
-  p.on('open',()=>{if(!ON||ON.peer!==p)return;ON.code=code;if(ON.state==='starting'){ON.state='lobby';render();}});
+  p.on('open',()=>{if(!ON||ON.peer!==p)return;ON.code=code;if(ON.state==='starting'){if(ON.resume){const sv=ON.resume;ON.resume=null;hostRestore(sv);}else ON.state='lobby';render();}});
   p.on('disconnected',()=>{if(ON&&ON.peer===p&&!p.destroyed)setTimeout(()=>{try{p.reconnect();}catch(x){}},1500);});
   p.on('error',e=>{if(!ON||ON.peer!==p)return;
     if(e.type==='unavailable-id'){try{p.destroy();}catch(x){}if(reuse){if((tries||0)<40)setTimeout(()=>{if(ON&&ON.role==='host')mkPeer(reuse,(tries||0)+1);},2000);else onFail('Non riesco a riaprire la stanza.');}else mkPeer();return;}
@@ -1015,6 +1027,8 @@ async function onAct(a){
   if(a==='oback'){leaveOnline();render();return;}
   if(a==='ocreate'){const n=val('nick'),k=val('key');ON.key=k;ON.nick=n;if(!n){ON.err='Scrivi il tuo nome.';render();return;}if(!(await okKey(k))){ON.err='Parola d\'accesso errata.';render();return;}setNick(n);setKey(k);onHost(n);return;}
   if(a==='ojoin'){const n=val('nick'),c=val('code').toUpperCase(),k=val('key');ON.nick=n;ON.code=c;ON.key=k;if(!n||c.length<4){ON.err='Scrivi nome e codice stanza.';render();return;}if(!(await okKey(k))){ON.err='Parola d\'accesso errata.';render();return;}setNick(n);setKey(k);onJoin(n,c);return;}
+  if(a==='oresume'){const sv=hostLoad(),k=val('key');if(!sv){ON.err='Nessuna partita salvata.';render();return;}if(!(await okKey(k))){ON.err='Parola d\'accesso errata.';render();return;}setKey(k);onHost(sv.nicks[0],sv);return;}
+  if(a==='odrop'){hostDrop();render();return;}
   if(a==='onet'){OPT.net=NEXTNET[OPT.net]||'p2p';try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}if(ON){ON.nick=val('nick')||ON.nick;ON.key=val('key')||ON.key;}render();return;}
   if(a==='oseats'){ON.seats=ON.seats>=4?Math.max(2,ON.nicks.length):ON.seats+1;if(ON.seats<ON.nicks.length)ON.seats=ON.nicks.length;render();return;}
   if(a==='ograce'){ON.grace={1:3,3:5,5:10,10:1}[ON.grace]||3;render();return;}
