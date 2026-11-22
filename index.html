@@ -20,6 +20,7 @@ html,body{margin:0;height:100%;overscroll-behavior:none;-webkit-user-select:none
 .top{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;font-weight:700;font-size:calc(var(--tx)*1.1)}
 .top button{background:#0000004d;color:#fff;border:0;border-radius:8px;font-size:18px;padding:4px 10px}
 .opps{display:flex;gap:6px;padding:0 8px}
+.opps.many{flex-wrap:wrap}.opps.many .opp{flex:1 1 30%;padding:3px 5px}
 .opp{flex:1;background:#0000003a;border-radius:10px;padding:5px 8px;font-size:var(--tx);border:2px solid transparent;text-align:center}
 .opp.act{border-color:#ffd54f}.opp.out{opacity:.4}
 .opp small{opacity:.85;font-size:calc(var(--tx)*.9)}
@@ -43,7 +44,7 @@ input{-webkit-user-select:text;user-select:text;width:100%;font-size:18px;paddin
 #tbl.spread .meld .card+.card{margin-left:0}
 .btns button.sec.on{background:#ffd54f77}
 .own{font-style:normal;font-size:10px;position:absolute;top:-6px;left:-4px;background:#ffd54f;color:#000;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;font-weight:700;z-index:3}
-.own.o1{background:#80d8ff}.own.o2{background:#ff9e80}.own.o3{background:#ccff90}
+.own.o1{background:#80d8ff}.own.o2{background:#ff9e80}.own.o3{background:#ccff90}.own.o4{background:#f48fb1}.own.o5{background:#b39ddb}
 .piles{display:flex;align-items:center;gap:12px;padding:4px 12px}
 .pile{position:relative;text-align:center;font-size:calc(var(--tx)*.85)}
 .pile.hint .card{box-shadow:0 0 0 3px #ffd54f}
@@ -98,7 +99,7 @@ input{-webkit-user-select:text;user-select:text;width:100%;font-size:18px;paddin
 const SUITS=['♠','♥','♦','♣'],RED=[false,true,true,false];
 let SPEED=1;const sleep=ms=>new Promise(r=>setTimeout(r,ms*SPEED));
 let uid=0;
-function makeDeck(){const d=[];for(let k=0;k<2;k++)for(let s=0;s<4;s++)for(let r=1;r<=13;r++)d.push({id:uid++,s,r});for(let j=0;j<4;j++)d.push({id:uid++,s:-1,r:0,j:true});return d;}
+function makeDeck(){const nd=OPT.decks===3?3:2,d=[];for(let k=0;k<nd;k++)for(let s=0;s<4;s++)for(let r=1;r<=13;r++)d.push({id:uid++,s,r});for(let j=0;j<4+2*(nd-2);j++)d.push({id:uid++,s:-1,r:0,j:true});return d;}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 const rk=p=>(p===14||p===1)?'A':p===11?'J':p===12?'Q':p===13?'K':String(p);
 const posVal=p=>p===14?11:p===1?1:Math.min(p,10);
@@ -360,14 +361,14 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.12.1',BUILD='22/11/2026';
+const VERSION='1.13.0',BUILD='22/11/2026';
 const TARGETV=[0,51,101,201];
-const OPT={size:4,rule:0,game:2,diff:1,spread:false,coach:false,net:'p2p'};
-try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;OPT.coach=o.coach===true;OPT.net=o.net==='mqtt'||o.net==='ntfy'?o.net:'p2p';}catch(e){}
+const OPT={size:4,rule:0,game:2,diff:1,spread:false,coach:false,net:'p2p',decks:2};
+try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;OPT.coach=o.coach===true;OPT.net=o.net==='mqtt'||o.net==='ntfy'?o.net:'p2p';OPT.decks=o.decks===3?3:2;}catch(e){}
 const SIZES=['Normali','Grandi','Molto grandi','Enormi','Auto (adatta)'],RULES=['Classica: devi usarlo subito','Libera dopo l\'apertura','Libera sempre'],GAMES=['Secca (una mano)','A 51 punti','A 101 punti','A 201 punti'];
-const LEVELS=['Facile','Normale','Difficile','Esperto'],NETS={p2p:'Diretto (Wi-Fi)',mqtt:'MQTT (anche rete mobile)',ntfy:'ntfy (anche rete mobile, lento)'},NEXTNET={p2p:'mqtt',mqtt:'ntfy',ntfy:'p2p'};
+const LEVELS=['Facile','Normale','Difficile','Esperto'],NETS={p2p:'Diretto (Wi-Fi)',mqtt:'MQTT (anche rete mobile)',ntfy:'ntfy (anche rete mobile, lento)'},NEXTNET={p2p:'mqtt',mqtt:'ntfy',ntfy:'p2p'},DECKS={2:'2 mazzi (108 carte)',3:'3 mazzi (162 carte)'};
 const verHTML=()=>`<p style="margin:12px 0 0;opacity:.8">Scala 40 · versione <b>${VERSION}</b> (${BUILD})</p>`;
-function optsHTML(){return`<button class="sec opt" data-act="optsize">🔍 Carte: <b>${SIZES[OPT.size]}</b></button><button class="sec opt" data-act="optrule">🃏 Scarto preso: <b>${RULES[OPT.rule]}</b></button><button class="sec opt" data-act="optgame">🎯 Partita: <b>${GAMES[OPT.game]}</b></button><button class="sec opt" data-act="optdiff">🤖 Difficoltà: <b>${LEVELS[OPT.diff]}</b></button><button class="sec opt" data-act="optnet">🌐 Online: <b>${NETS[OPT.net]}</b></button>`;}
+function optsHTML(){return`<button class="sec opt" data-act="optsize">🔍 Carte: <b>${SIZES[OPT.size]}</b></button><button class="sec opt" data-act="optrule">🃏 Scarto preso: <b>${RULES[OPT.rule]}</b></button><button class="sec opt" data-act="optgame">🎯 Partita: <b>${GAMES[OPT.game]}</b></button><button class="sec opt" data-act="optdiff">🤖 Difficoltà: <b>${LEVELS[OPT.diff]}</b></button><button class="sec opt" data-act="optnet">🌐 Online: <b>${NETS[OPT.net]}</b></button><button class="sec opt" data-act="optdecks">🂠 Mazzi: <b>${DECKS[OPT.decks]}</b></button>`;}
 function cardHTML(c,o={}){
   const cl=['card'];if(o.sm)cl.push('sm');
   if(c.j)cl.push('joker');else cl.push('k'+c.s);
@@ -378,12 +379,12 @@ function cardHTML(c,o={}){
 const mini=(x,m)=>{let su=x.su;if(su===undefined&&x.c.j&&m&&m.type==='run'){const r=m.cards.find(y=>!y.c.j);if(r)su=r.c.s;}return cardHTML(x.c,{sm:1,p:x.p,su,noid:1});};
 function startHTML(){
   return`<div class="ov"><div class="box"><h2>🃏 Scala 40</h2><p>Quanti avversari?</p>
-  <button data-act="start" data-n="1">1</button><button data-act="start" data-n="2">2</button><button data-act="start" data-n="3">3</button>
+  <button data-act="start" data-n="1">1</button><button data-act="start" data-n="2">2</button><button data-act="start" data-n="3">3</button><button data-act="start" data-n="4">4</button><button data-act="start" data-n="5">5</button>
   ${optsHTML()}<p><button data-act="online">🌐 Gioca online con amici</button></p><p><button class="sec" data-act="rules">Guida e regole</button></p>${verHTML()}</div></div>`;
 }
 function menuHTML(){
   if(UI.rules)return`<div class="ov"><div class="box"><h2>Guida e regole</h2><ul>
-  <li>2 mazzi + 4 jolly, 13 carte a testa. Turno: pesca (mazzo o scarto) → cala/attacca → scarta.</li>
+  <li>Da 2 a 6 giocatori. Di base 2 mazzi + 4 jolly (108 carte), 13 carte a testa; in Impostazioni «Mazzi» puoi passare a 3 mazzi + 6 jolly (162 carte), utile in 5-6 giocatori. Turno: pesca (mazzo o scarto) → cala/attacca → scarta.</li>
   <li><b>Tris</b>: stesso valore, semi diversi (3–4). <b>Scala</b>: ≥3 carte consecutive dello stesso seme; asso basso (A-2-3) o alto (Q-K-A). Max 1 jolly per combinazione.</li>
   <li><b>Apertura</b>: le prime combinazioni devono valere ≥40 punti insieme (A=11, figure=10, jolly = carta sostituita).</li>
   <li>Scarto preso: nella regola classica va usato subito (e, se non hai aperto, nell'apertura). Nel menu puoi scegliere di poterlo tenere in mano (vale per te).</li>
@@ -422,7 +423,7 @@ function gameHTML(){
   const hand=me.hand.map(c=>cardHTML(c,{sel:G.sel.has(c.id),isNew:c.id===G.newId,must:c.id===G.mustUse,tip:tips.has(c.id)&&!G.sel.has(c.id)})).join('');
   const can=myTurn&&G.phase==='play';
   return`<div class="top"><span>Scala 40 · mano ${G.round}${G.target?' · a '+G.target:' · secca'}</span><button data-act="menu">☰</button></div>
-  <div class="opps">${opps}</div>
+  <div class="opps${G.players.length>4?' many':''}">${opps}</div>
   <div id="tbl"${OPT.spread?' class="spread"':''}>${melds}</div>
   <div class="piles">
    <div class="pile${myTurn&&G.phase==='draw'?' hint':''}" data-act="stock"><div class="card back"><b class="cnt">${G.stock.length}</b></div><small>mazzo</small></div>
@@ -552,6 +553,7 @@ function act(a,d){
   if(a==='rules'){UI.rules=!UI.rules;render();return;}
   if(a==='menu'){UI.menu=!UI.menu;render();return;}
   if(a==='optsize'||a==='optrule'||a==='optgame'||a==='optdiff'){const k={optsize:'size',optrule:'rule',optgame:'game',optdiff:'diff'}[a];OPT[k]=(OPT[k]+1)%({size:5,rule:3,game:4,diff:4}[k]);try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
+  if(a==='optdecks'){OPT.decks=OPT.decks===3?2:3;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='optnet'){OPT.net=NEXTNET[OPT.net]||'p2p';try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='hint'){if(ON)return;OPT.coach=!OPT.coach;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='spread'){OPT.spread=!OPT.spread;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
@@ -1038,7 +1040,7 @@ async function onAct(a){
   if(a==='olast'){lastDrop();render();return;}
   if(a==='orejoin'){const l=lastLoad(),k=val('key');if(!l){ON.err='Nessuna stanza ricordata.';render();return;}if(!(await okKey(k))){ON.err='Parola d\'accesso errata.';render();return;}setKey(k);setNick(l.nick);onJoin(l.nick,l.code);return;}
   if(a==='onet'){OPT.net=NEXTNET[OPT.net]||'p2p';try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}if(ON){ON.nick=val('nick')||ON.nick;ON.key=val('key')||ON.key;}render();return;}
-  if(a==='oseats'){ON.seats=ON.seats>=4?Math.max(2,ON.nicks.length):ON.seats+1;if(ON.seats<ON.nicks.length)ON.seats=ON.nicks.length;render();return;}
+  if(a==='oseats'){ON.seats=ON.seats>=6?Math.max(2,ON.nicks.length):ON.seats+1;if(ON.seats<ON.nicks.length)ON.seats=ON.nicks.length;render();return;}
   if(a==='ograce'){ON.grace={1:3,3:5,5:10,10:1}[ON.grace]||3;render();return;}
   if(a==='ostart'){onStart();return;}
   if(a==='oshare'){const url=inviteUrl(),txt='Giochiamo a Scala 40! Apri: '+url+' → 🌐 Gioca online → Entra nella stanza. Codice stanza: '+ON.code+'. La parola d\'accesso te la do io.';
