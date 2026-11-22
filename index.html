@@ -103,6 +103,7 @@ input{-webkit-user-select:text;user-select:text;width:100%;font-size:18px;paddin
 .chrow{display:flex;padding:4px 0}.chrow .card+.card{margin-left:calc(var(--cw)*-.42)}
 .box .opt{display:block;width:100%;text-align:left;margin:6px 0}
 </style>
+<script data-goatcounter="https://sergio-sfs.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 <div id="app"></div>
@@ -375,7 +376,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.16.0',BUILD='22/11/2026';
+const VERSION='1.16.1',BUILD='22/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false,coach:false,net:'p2p',decks:2,cards:0,rl:{open:40,ace:0,pen:0,swap:true}};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;OPT.coach=o.coach===true;OPT.net=o.net==='mqtt'||o.net==='ntfy'?o.net:'p2p';OPT.decks=o.decks===3?3:2;OPT.cards=o.cards===1||o.cards===2?o.cards:0;if(o.rl){const r=o.rl;OPT.rl={open:r.open===51?51:40,ace:r.ace===1?1:0,pen:r.pen===1||r.pen===2?r.pen:0,swap:r.swap!==false};}}catch(e){}
