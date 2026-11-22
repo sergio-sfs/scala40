@@ -78,6 +78,7 @@ input{-webkit-user-select:text;user-select:text;width:100%;font-size:18px;paddin
 .btns button{flex:1;padding:12px 4px;font-size:16px;font-weight:700;border:0;border-radius:10px;background:#ffd54f;color:#222}
 .btns button:disabled{opacity:.35}
 .btns button.sec{background:#ffffff33;color:#fff;flex:0 0 52px}
+.note{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:#ffd54f;color:#000;font-weight:700;padding:8px 14px;border-radius:20px;z-index:30;box-shadow:0 2px 10px #0008;max-width:88%;text-align:center;pointer-events:none}
 .ov{position:absolute;inset:0;background:#000000c8;display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
 .box{background:#0d4d33;border-radius:16px;padding:18px;width:100%;max-height:100%;overflow:auto}
 .box h2{margin:0 0 10px}
@@ -363,7 +364,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.13.1',BUILD='22/11/2026';
+const VERSION='1.14.0',BUILD='22/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false,coach:false,net:'p2p',decks:2};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;OPT.coach=o.coach===true;OPT.net=o.net==='mqtt'||o.net==='ntfy'?o.net:'p2p';OPT.decks=o.decks===3?3:2;}catch(e){}
@@ -399,7 +400,7 @@ function menuHTML(){
   <li><b>Difficile</b>: sbaglia poco e prende i jolly dal tavolo.</li>
   <li><b>Esperto</b>: non sbaglia occasioni, cala il massimo di carte possibile, scambia i jolly ed evita di scartare ciò che serve agli avversari.</li></ul>
   <h3 style="margin:12px 0 2px">Online con amici</h3><ul>
-  <li>Serve la parola d'accesso (te la dà chi ti invita; la scrivi la prima volta su ogni dispositivo). Dal menu iniziale: 🌐 Gioca online → Crea stanza, poi invia link e codice. Gli amici aprono il link, vanno su Gioca online e scrivono parola d'accesso, nome e codice stanza. Chi crea la stanza decide quando avviare e gestisce i passaggi di mano; i posti liberi li occupa il computer. Tutti devono tenere l'app aperta: se qualcuno esce, il computer prende il suo posto.</li>
+  <li>Serve la parola d'accesso (te la dà chi ti invita; la scrivi la prima volta su ogni dispositivo). Dal menu iniziale: 🌐 Gioca online → Crea stanza, poi invia link e codice. Gli amici aprono il link, vanno su Gioca online e scrivono parola d'accesso, nome e codice stanza. L'organizzatore riceve un avviso (e un breve suono) quando un amico entra, esce o rientra. Chi crea la stanza decide quando avviare e gestisce i passaggi di mano; i posti liberi li occupa il computer. Tutti devono tenere l'app aperta: se qualcuno esce, il computer prende il suo posto.</li>
   <li><b>Se ti assenti o l'app si chiude</b> (telefonata, blocco schermo, ecc.): per qualche minuto l'app si ricollega da sola. Se la partita è ancora aperta dall'organizzatore, da Gioca online tocca «Rientra nella stanza» (l'app ricorda l'ultima stanza e il nome, ti chiede solo la parola d'accesso): riprendi il tuo posto con il punteggio attuale. Nel frattempo il computer gioca al posto tuo.</li>
   <li><b>Perché solo l'organizzatore può salvare</b>: la partita vive sul suo telefono (mazzo, mani, tavolo); gli altri ricevono solo la propria mano. L'organizzatore ha un salvataggio automatico a ogni turno, valido 30 giorni: se la sua app si chiude, da Gioca online → «Riprendi come organizzatore» riapre la stessa stanza (la mano in corso riparte dall'inizio del turno). Gli amici rientrano con «Rientra nella stanza». Se l'organizzatore cancella i dati del sito o il salvataggio scade, la partita è persa per tutti.</li><li><b>Collegamento</b>: «Diretto» va bene con lo stesso Wi-Fi; con la rete mobile (senza Wi-Fi) chi crea la stanza sceglie «MQTT» o «ntfy» (anche in Impostazioni → Online): passa da un servizio pubblico, i messaggi sono cifrati con la parola d'accesso (ntfy è più lento: aggiorna le mosse ogni qualche secondo). Il codice stanza è di 5 caratteri e inizia con M (MQTT) o N (ntfy): gli amici non devono scegliere nulla.</li></ul>
   <h3 style="margin:12px 0 2px">Comandi</h3><ul>
@@ -454,6 +455,7 @@ function render(){
   if(UI.rules)h+=menuHTML();
   else if(UI.menu)h+=`<div class="ov"><div class="box"><h2>Menu</h2>${optsHTML()}<button data-act="newgame">Nuova partita</button>${G?'<button class="sec" data-act="exit">Fine partita ed esci</button>':''}<button class="sec" data-act="rules">Guida e regole</button><button class="sec" data-act="menu">Chiudi</button>${verHTML()}${UPD?'<p style="margin:6px 0 0;color:#ffd54f">Aggiornamento pronto: si installa a fine partita.</p>':''}</div></div>`;
   app.className='s'+OPT.size;
+  if(ON&&ON.note)h+=`<div class="note">${esc(ON.note)}</div>`;
   app.innerHTML=h;
   fit();netHook();
   const t2=document.getElementById('tbl');if(t2)t2.scrollTop=st;
@@ -693,6 +695,8 @@ const setNick=n=>{try{localStorage.setItem('scala40nick',n);}catch(e){}};
 const HSAVE='scala40host';
 function hostSave(){if(!ON||ON.role!=='host'||!G)return;try{localStorage.setItem(HSAVE,JSON.stringify({v:1,ts:Date.now(),code:ON.code,net:ON.net,seats:ON.seats,grace:ON.grace,nicks:ON.nicks,G:G},(k,v)=>k==='conn'?undefined:(v instanceof Set?Array.from(v):v)));}catch(e){}}
 function hostLoad(){try{const x=JSON.parse(localStorage.getItem(HSAVE)||'null');if(x&&x.v===1&&x.G&&x.code&&Date.now()-x.ts<30*864e5)return x;}catch(e){}return null;}
+function beep(){try{const A=window.AudioContext||window.webkitAudioContext;if(!A)return;const c=window._ac=window._ac||new A();if(c.state==='suspended')c.resume();const o=c.createOscillator(),g=c.createGain();o.frequency.value=880;g.gain.value=.08;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.18);}catch(e){}}
+function notify(m){if(!ON||ON.role!=='host')return;ON.note=m;beep();clearTimeout(ON.nt);ON.nt=setTimeout(()=>{if(ON){ON.note='';render();}},4500);render();}
 const hostDrop=()=>{try{localStorage.removeItem(HSAVE);}catch(e){}};
 const LSAVE='scala40last';
 const lastSave=(nick,code)=>{try{localStorage.setItem(LSAVE,JSON.stringify({nick,code,ts:Date.now()}));}catch(e){}};
@@ -878,6 +882,7 @@ function hostMsg(c,m){
     try{p.conn&&p.conn!==c&&p.conn.close();}catch(e){}
     clearTimeout(ON.graceT&&ON.graceT[k]);
     p.remote=true;p.conn=c;c.nick=nm;c.last=Date.now();
+    notify('✅ '+p.name+' è rientrato');
     if(G.turn===k&&G.phase!=='roundEnd'&&!wasBot){restoreSnap();say(p.name+' sta giocando…');sendTurn(k);}
     else try{c.send({t:'st',g:view(G,k),opt:{rule:OPT.rule}});}catch(e){}
     render();return;
@@ -886,7 +891,7 @@ function hostMsg(c,m){
     if(ON.state!=='lobby'||ON.nicks.length>=ON.seats){try{c.send({t:'reject',why:ON.state==='lobby'?'Stanza piena.':'Partita già iniziata.'});}catch(e){}return;}
     let nick=String(m.nick||'Ospite').slice(0,12),base=nick,i=2;
     while(ON.nicks.includes(nick)||nick==='Tu')nick=base+(i++);
-    c.nick=nick;c.last=Date.now();ON.nicks.push(nick);ON.conns[nick]=c;lobbyBcast();render();return;
+    c.nick=nick;c.last=Date.now();ON.nicks.push(nick);ON.conns[nick]=c;lobbyBcast();notify('👋 '+nick+' è entrato');return;
   }
   c.last=Date.now();
   if(m.t==='ping'){try{c.send({t:'pong'});}catch(e){}return;}
@@ -895,10 +900,10 @@ function hostMsg(c,m){
 }
 function hostLeft(c){
   if(!ON||ON.role!=='host')return;
-  if(ON.state==='lobby'&&c.nick){ON.nicks=ON.nicks.filter(x=>x!==c.nick);delete ON.conns[c.nick];lobbyBcast();render();return;}
+  if(ON.state==='lobby'&&c.nick){const had=ON.nicks.includes(c.nick);ON.nicks=ON.nicks.filter(x=>x!==c.nick);delete ON.conns[c.nick];lobbyBcast();if(had)notify('🚪 '+c.nick+' è uscito');else render();return;}
   if(!G)return;
   const k=G.players.findIndex(p=>p.conn===c);if(k<1)return;
-  const p=G.players[k];p.conn=null;
+  const p=G.players[k];p.conn=null;notify('⚠️ '+p.name+' si è scollegato');
   if(G.turn===k&&G.phase!=='roundEnd'){restoreSnap();awayTurn(k);}else render();
 }
 function awayTurn(k){
