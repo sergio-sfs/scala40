@@ -20,6 +20,7 @@ html,body{margin:0;height:100%;overscroll-behavior:none;-webkit-user-select:none
 .top{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;font-weight:700;font-size:calc(var(--tx)*1.1)}
 .top button{background:#0000004d;color:#fff;border:0;border-radius:8px;font-size:18px;padding:4px 10px}
 .opps{display:flex;gap:6px;padding:0 8px}
+.opp .own{position:static;display:inline-flex;margin-right:4px;vertical-align:middle;font-size:9px}
 .opps.many{flex-wrap:wrap}.opps.many .opp{flex:1 1 30%;padding:3px 5px}
 .opp{flex:1;background:#0000003a;border-radius:10px;padding:5px 8px;font-size:var(--tx);border:2px solid transparent;text-align:center}
 .opp.act{border-color:#ffd54f}.opp.out{opacity:.4}
@@ -43,7 +44,7 @@ input{-webkit-user-select:text;user-select:text;width:100%;font-size:18px;paddin
 #tbl.spread .meld{flex-wrap:wrap;gap:4px;max-width:100%}
 #tbl.spread .meld .card+.card{margin-left:0}
 .btns button.sec.on{background:#ffd54f77}
-.own{font-style:normal;font-size:10px;position:absolute;top:-6px;left:-4px;background:#ffd54f;color:#000;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;font-weight:700;z-index:3}
+.own{font-style:normal;font-size:10px;position:absolute;top:-6px;left:-4px;background:#ffd54f;color:#000;border-radius:9px;min-width:15px;padding:0 3px;box-sizing:border-box;height:15px;display:flex;align-items:center;justify-content:center;font-weight:700;z-index:3}
 .own.o1{background:#80d8ff}.own.o2{background:#ff9e80}.own.o3{background:#ccff90}.own.o4{background:#f48fb1}.own.o5{background:#b39ddb}
 .piles{display:flex;align-items:center;gap:12px;padding:4px 12px}
 .pile{position:relative;text-align:center;font-size:calc(var(--tx)*.85)}
@@ -214,6 +215,7 @@ function pickDiscard(hand,danger,rnd){
 /* ===== Stato di gioco ===== */
 let G=null,ON=null;const UI={menu:false,rules:false};
 const H=()=>G.players[0];
+function ownTags(){const ps=G.players,t=ps.map((p,i)=>{for(let n=1;n<=3;n++){const x=p.name.slice(0,n).toUpperCase();if(!ps.some((q,j)=>j!==i&&q.name.toUpperCase().startsWith(x)))return x;}return null;});return t.map((x,i)=>x||ps[i].name[0].toUpperCase()+(i+1));}
 const say=(m,err)=>{G.msg=m;G.err=!!err;};
 const nextActive=i=>{let j=i;do{j=(j+1)%G.players.length;}while(G.players[j].out);return j;};
 const sumPen=h=>h.reduce((s,c)=>s+penalty(c),0);
@@ -361,7 +363,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.13.0',BUILD='22/11/2026';
+const VERSION='1.13.1',BUILD='22/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false,coach:false,net:'p2p',decks:2};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;OPT.coach=o.coach===true;OPT.net=o.net==='mqtt'||o.net==='ntfy'?o.net:'p2p';OPT.decks=o.decks===3?3:2;}catch(e){}
@@ -413,10 +415,10 @@ function roundHTML(){
   ${G.over?`<h3>Partita finita: vince ${G.winner==='Tu'?'tu! 🏆':G.winner}</h3><button data-act="newgame">${ON?'Esci':'Nuova partita'}</button>`:(ON&&ON.role==='client'?'<p>Attendi che l\'organizzatore continui…</p><button class="sec" data-act="newgame">Esci</button>':`<button data-act="next">Prossima mano</button>`)}</div></div>`;
 }
 function gameHTML(){
-  const me=H(),myTurn=G.turn===0&&G.phase!=='roundEnd'&&G.phase!=='wait';
+  const me=H(),myTurn=G.turn===0&&G.phase!=='roundEnd'&&G.phase!=='wait',TG=ownTags();
   const top=G.discard[G.discard.length-1];
-  const opps=G.players.slice(1).map((p,k)=>`<div class="opp${G.turn===k+1&&G.phase!=='roundEnd'?' act':''}${p.out?' out':''}"><b>${p.name}</b>${p.opened?' ✓':''}<br><small>${p.hand.length} carte · ${p.score} pt</small></div>`).join('');
-  const melds=G.melds.map((m,i)=>`<div class="meld" data-act="meld" data-i="${i}"><i class="own o${m.owner}">${G.players[m.owner].name[0]}</i>${m.cards.map(x=>mini(x,m)).join('')}</div>`).join('')||'<div class="empty">Nessuna combinazione sul tavolo</div>';
+  const opps=G.players.slice(1).map((p,k)=>`<div class="opp${G.turn===k+1&&G.phase!=='roundEnd'?' act':''}${p.out?' out':''}"><i class="own o${k+1}">${TG[k+1]}</i><b>${p.name}</b>${p.opened?' ✓':''}<br><small>${p.hand.length} carte · ${p.score} pt</small></div>`).join('');
+  const melds=G.melds.map((m,i)=>`<div class="meld" data-act="meld" data-i="${i}"><i class="own o${m.owner}">${TG[m.owner]}</i>${m.cards.map(x=>mini(x,m)).join('')}</div>`).join('')||'<div class="empty">Nessuna combinazione sul tavolo</div>';
   const pt=G.pending.reduce((s,e)=>s+e.pts,0);
   const pend=G.pending.length?`<div class="pend"><small>Apertura: ${pt}/40 punti</small><div class="row">${G.pending.map(e=>`<div class="meld">${e.cards.map(x=>mini(x,e)).join('')}</div>`).join('')}</div></div>`:'';
   const hint=OPT.coach&&!ON&&myTurn&&(G.phase==='draw'||G.phase==='play')?coachCached():null,tips=new Set(hint&&hint.sel||[]);
