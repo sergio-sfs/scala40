@@ -116,6 +116,7 @@ function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random
 const rk=p=>(p===14||p===1)?'A':p===11?'J':p===12?'Q':p===13?'K':String(p);
 const posVal=p=>p===14?11:p===1?1:Math.min(p,10);
 const penalty=c=>c.j?25:c.r===1?11:Math.min(c.r,10);
+const RU=()=>(G&&G.rules)||OPT.rl,OPEN=()=>RU().open||40,PEN0=()=>{const p=RU().pen;return p===1?50:p===2?'hand':100;};
 const cs=c=>c.j?'il Jolly':rk(c.r)+SUITS[c.s];
 
 // Valuta un gruppo di carte: ritorna {type,pts,cards:[{c,p}]} oppure null
@@ -136,7 +137,7 @@ function evalAll(cards){
   }
   const suit=rl[0].s;if(!rl.every(c=>c.s===suit))return[];
   const out=[],seen=new Set();
-  for(const hi of[false,true]){
+  for(const hi of(RU().ace===1?[false]:[false,true])){
     const lo=hi?2:1,up=hi?14:13;
     const ps=rl.map(c=>c.r===1?(hi?14:1):c.r);
     if(new Set(ps).size!==ps.length)continue;
@@ -224,7 +225,7 @@ function pickDiscard(hand,danger,rnd){
 }
 
 /* ===== Stato di gioco ===== */
-let G=null,ON=null;const UI={menu:false,rules:false};
+let G=null,ON=null;const UI={menu:false,rules:false,vars:false};
 const H=()=>G.players[0];
 function ownTags(){const ps=G.players,t=ps.map((p,i)=>{for(let n=1;n<=3;n++){const x=p.name.slice(0,n).toUpperCase();if(!ps.some((q,j)=>j!==i&&q.name.toUpperCase().startsWith(x)))return x;}return null;});return t.map((x,i)=>x||ps[i].name[0].toUpperCase()+(i+1));}
 const say=(m,err)=>{G.msg=m;G.err=!!err;};
@@ -234,7 +235,7 @@ const BOTS=['Anna','Bruno','Carla','Dario','Elena','Fabio','Giulia','Marta','Nad
 
 function startGame(n,allBots,pre){
   G={players:[{name:'Tu',human:!allBots,hand:[],opened:false,score:0,out:false}],stock:[],discard:[],melds:[],pending:[],sel:new Set(),
-     turn:0,phase:'wait',mustUse:null,newId:null,msg:'',err:false,round:0,dealer:n,sortMode:0,over:false,rows:null,turns:0,target:TARGETV[OPT.game]};
+     rules:Object.assign({},OPT.rl),turn:0,phase:'wait',mustUse:null,newId:null,msg:'',err:false,round:0,dealer:n,sortMode:0,over:false,rows:null,turns:0,target:TARGETV[OPT.game]};
   const bn=shuffle(BOTS.filter(x=>!(ON&&ON.nicks&&ON.nicks.includes(x))));
   for(let i=0;i<n;i++)G.players.push({name:bn[i],human:false,hand:[],opened:false,score:0,out:false});
   UI.menu=false;UI.rules=false;
@@ -282,7 +283,7 @@ function endRound(closer){
   G.phase='roundEnd';const rows=[];
   G.players.forEach((p,i)=>{
     if(!p.inRound)return;
-    const pts=i===closer?0:(closer===-1?sumPen(p.hand):(p.opened?sumPen(p.hand):100));
+    const pts=i===closer?0:(closer===-1?sumPen(p.hand):(p.opened?sumPen(p.hand):(PEN0()==='hand'?sumPen(p.hand):PEN0())));
     p.score+=pts;if(G.target>0&&p.score>=G.target)p.out=true;
     rows.push({name:p.name,pts,score:p.score,out:p.out,opened:p.opened,closer:i===closer});
   });
@@ -316,7 +317,7 @@ async function botTurn(i,g){
   if(top){
     must=top.j?{j:true}:{s:top.s,r:top.r};
     const sol=solve(P.hand.concat([top]),must);
-    if(sol&&(P.opened||sol.pts>=40)&&Math.random()<LVL.take){G.discard.pop();G.taken.push({by:i,card:top});P.hand.push(top);took=true;acts.push('prende '+cs(top)+' dallo scarto');}
+    if(sol&&(P.opened||sol.pts>=OPEN())&&Math.random()<LVL.take){G.discard.pop();G.taken.push({by:i,card:top});P.hand.push(top);took=true;acts.push('prende '+cs(top)+' dallo scarto');}
   }
   if(!took){const c=drawStock();if(!c){endRound(-1);return;}P.hand.push(c);acts.push('pesca dal mazzo');}
   say(P.name+' '+acts[0]+'.');render();await sleep(800);if(G!==g)return;
@@ -334,8 +335,8 @@ async function botTurn(i,g){
     }
     if(sw){say(P.name+' prende '+(sw===1?'un jolly':sw+' jolly')+' dal tavolo.');render();await sleep(900);if(G!==g)return;}
   }
-  const sol=LVL.deepM?solve(P.hand,took?must:null,0,{cards:true,minPts:P.opened?0:40,maxCards:P.hand.length-1}):solve(P.hand,took?must:null);
-  if(sol&&(P.opened||sol.pts>=40)&&(took||Math.random()<LVL.lay)){
+  const sol=LVL.deepM?solve(P.hand,took?must:null,0,{cards:true,minPts:P.opened?0:OPEN(),maxCards:P.hand.length-1}):solve(P.hand,took?must:null);
+  if(sol&&(P.opened||sol.pts>=OPEN())&&(took||Math.random()<LVL.lay)){
     let melds=sol.melds.slice();
     if(melds.reduce((a,m)=>a+m.length,0)>=P.hand.length){
       const k=melds.findIndex(m=>m.length>3);
@@ -343,7 +344,7 @@ async function botTurn(i,g){
       else melds.pop();
     }
     const tot=melds.reduce((a,m)=>{const e=evalMeld(m);return a+(e?e.pts:0);},0);
-    if(!P.opened&&tot<40)melds=[];
+    if(!P.opened&&tot<OPEN())melds=[];
     let n=0;
     for(const m of melds){
       const ev=evalMeld(m);if(!ev)continue;
@@ -374,14 +375,23 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.15.0',BUILD='22/11/2026';
+const VERSION='1.16.0',BUILD='22/11/2026';
 const TARGETV=[0,51,101,201];
-const OPT={size:4,rule:0,game:2,diff:1,spread:false,coach:false,net:'p2p',decks:2,cards:0};
-try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;OPT.coach=o.coach===true;OPT.net=o.net==='mqtt'||o.net==='ntfy'?o.net:'p2p';OPT.decks=o.decks===3?3:2;OPT.cards=o.cards===1||o.cards===2?o.cards:0;}catch(e){}
-const SIZES=['Normali','Grandi','Molto grandi','Enormi','Auto (adatta)'],RULES=['Classica: devi usarlo subito','Libera dopo l\'apertura','Libera sempre'],GAMES=['Secca (una mano)','A 51 punti','A 101 punti','A 201 punti'];
+const OPT={size:4,rule:0,game:2,diff:1,spread:false,coach:false,net:'p2p',decks:2,cards:0,rl:{open:40,ace:0,pen:0,swap:true}};
+try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;OPT.coach=o.coach===true;OPT.net=o.net==='mqtt'||o.net==='ntfy'?o.net:'p2p';OPT.decks=o.decks===3?3:2;OPT.cards=o.cards===1||o.cards===2?o.cards:0;if(o.rl){const r=o.rl;OPT.rl={open:r.open===51?51:40,ace:r.ace===1?1:0,pen:r.pen===1||r.pen===2?r.pen:0,swap:r.swap!==false};}}catch(e){}
+const SIZES=['Normali','Grandi','Molto grandi','Enormi','Auto (adatta)'],VARACE=['alto e basso (A-2-3, Q-K-A)','solo basso (A-2-3)'],VARPEN=['100 punti','50 punti','carte in mano'],RULES=['Classica: devi usarlo subito','Libera dopo l\'apertura','Libera sempre'],GAMES=['Secca (una mano)','A 51 punti','A 101 punti','A 201 punti'];
 const LEVELS=['Facile','Normale','Difficile','Esperto'],NETS={p2p:'Diretto (Wi-Fi)',mqtt:'MQTT (anche rete mobile)',ntfy:'ntfy (anche rete mobile, lento)'},NEXTNET={p2p:'mqtt',mqtt:'ntfy',ntfy:'p2p'},DECKS={2:'2 mazzi (108 carte)',3:'3 mazzi (162 carte)'},CARDS=['Semplici','Classiche','Grandi indici'];
 const verHTML=()=>`<p style="margin:12px 0 0;opacity:.8">Scala 40 · versione <b>${VERSION}</b> (${BUILD})</p>`;
-function optsHTML(){return`<button class="sec opt" data-act="optsize">🔍 Carte: <b>${SIZES[OPT.size]}</b></button><button class="sec opt" data-act="optrule">🃏 Scarto preso: <b>${RULES[OPT.rule]}</b></button><button class="sec opt" data-act="optgame">🎯 Partita: <b>${GAMES[OPT.game]}</b></button><button class="sec opt" data-act="optdiff">🤖 Difficoltà: <b>${LEVELS[OPT.diff]}</b></button><button class="sec opt" data-act="optnet">🌐 Online: <b>${NETS[OPT.net]}</b></button><button class="sec opt" data-act="optcards">🎴 Grafica carte: <b>${CARDS[OPT.cards]}</b></button><button class="sec opt" data-act="optdecks">🂠 Mazzi: <b>${DECKS[OPT.decks]}</b></button>`;}
+function varsHTML(){
+  const r=OPT.rl;return`<div class="ov"><div class="box"><h2>⚙️ Varianti di regola</h2><p style="font-size:14px;opacity:.85">Valgono dalla prossima partita; online le decide chi crea la stanza.</p>
+  <button class="sec opt" data-act="optrule">🃏 Scarto preso: <b>${RULES[OPT.rule]}</b></button>
+  <button class="sec opt" data-act="vopen">🚪 Punti per aprire: <b>${r.open}</b></button>
+  <button class="sec opt" data-act="vace">🅰️ Asso nelle scale: <b>${VARACE[r.ace]}</b></button>
+  <button class="sec opt" data-act="vpen">💥 Chi non ha aperto paga: <b>${VARPEN[r.pen]}</b></button>
+  <button class="sec opt" data-act="vswap">🔄 Scambio jolly dal tavolo: <b>${r.swap?'Sì':'No'}</b></button>
+  <button data-act="vars">Chiudi</button></div></div>`;
+}
+function optsHTML(){return`<button class="sec opt" data-act="optsize">🔍 Carte: <b>${SIZES[OPT.size]}</b></button><button class="sec opt" data-act="vars">⚙️ Varianti di regola…</button><button class="sec opt" data-act="optgame">🎯 Partita: <b>${GAMES[OPT.game]}</b></button><button class="sec opt" data-act="optdiff">🤖 Difficoltà: <b>${LEVELS[OPT.diff]}</b></button><button class="sec opt" data-act="optnet">🌐 Online: <b>${NETS[OPT.net]}</b></button><button class="sec opt" data-act="optcards">🎴 Grafica carte: <b>${CARDS[OPT.cards]}</b></button><button class="sec opt" data-act="optdecks">🂠 Mazzi: <b>${DECKS[OPT.decks]}</b></button>`;}
 const CK=()=>(ON&&ON.role==='client'&&G&&G.cards!==undefined)?G.cards:OPT.cards;
 function face(r){
   const hd='<circle cx="20" cy="23" r="8" fill="#fff" stroke="currentColor" stroke-width="2"/>',sh='<path d="M6 52Q8 36 20 34Q32 36 34 52Z" fill="currentColor"/>';
@@ -407,11 +417,12 @@ function menuHTML(){
   if(UI.rules)return`<div class="ov"><div class="box"><h2>Guida e regole</h2><ul>
   <li>Grafica carte (Impostazioni): Semplici, Classiche (con figure e indici agli angoli) o Grandi indici; online vale quella scelta dall'organizzatore, insieme a regola dello scarto e partita a punti. Da 2 a 6 giocatori. Di base 2 mazzi + 4 jolly (108 carte), 13 carte a testa; in Impostazioni «Mazzi» puoi passare a 3 mazzi + 6 jolly (162 carte), utile in 5-6 giocatori. Turno: pesca (mazzo o scarto) → cala/attacca → scarta.</li>
   <li><b>Tris</b>: stesso valore, semi diversi (3–4). <b>Scala</b>: ≥3 carte consecutive dello stesso seme; asso basso (A-2-3) o alto (Q-K-A). Max 1 jolly per combinazione.</li>
-  <li><b>Apertura</b>: le prime combinazioni devono valere ≥40 punti insieme (A=11, figure=10, jolly = carta sostituita).</li>
+  <li><b>Apertura</b>: le prime combinazioni devono valere ≥${OPEN()} punti insieme (40 di base, 51 con la variante) (A=11, figure=10, jolly = carta sostituita).</li>
   <li>Scarto preso: nella regola classica va usato subito (e, se non hai aperto, nell'apertura). Nel menu puoi scegliere di poterlo tenere in mano (vale per te).</li>
+  <li><b>Varianti di regola</b> (⚙️ nel menu): scarto preso, punti per aprire (40/51), asso nelle scale (alto e basso o solo basso), cosa paga chi non ha aperto, scambio dei jolly dal tavolo. Valgono dalla prossima partita; online le decide chi crea la stanza e arrivano a tutti gli invitati.</li>
   <li>Dopo l'apertura puoi attaccare carte alle combinazioni sul tavolo, anche degli altri: seleziona le carte e tocca la combinazione. Per prendere un jolly dal tavolo seleziona la carta che lo sostituisce e tocca la combinazione.</li>
   <li>Non puoi scartare una carta che si attacca a una combinazione sul tavolo (salvo l'ultima carta, per chiudere).</li>
-  <li>Si chiude scartando l'ultima carta (tienine sempre una da scartare). Gli altri segnano le carte in mano (jolly 25, A 11, figure 10); chi non ha aperto 100. Si gioca una mano (secca) oppure fino al punteggio scelto nel menu: chi lo raggiunge è eliminato.</li></ul>
+  <li>Si chiude scartando l'ultima carta (tienine sempre una da scartare). Gli altri segnano le carte in mano (jolly 25, A 11, figure 10); chi non ha aperto 100 (o 50, o le carte in mano: variante). Si gioca una mano (secca) oppure fino al punteggio scelto nel menu: chi lo raggiunge è eliminato.</li></ul>
   <h3 style="margin:12px 0 2px">Livelli di difficoltà (🤖 nel menu)</h3><ul>
   <li><b>Facile</b>: gioca distratto; cala e attacca solo a volte e scarta spesso a caso.</li>
   <li><b>Normale</b>: gioca in modo corretto ma sbaglia ogni tanto; non scambia i jolly.</li>
@@ -439,7 +450,7 @@ function gameHTML(){
   const opps=G.players.slice(1).map((p,k)=>`<div class="opp${G.turn===k+1&&G.phase!=='roundEnd'?' act':''}${p.out?' out':''}"><i class="own o${k+1}">${TG[k+1]}</i><b>${p.name}</b>${p.opened?' ✓':''}<br><small>${p.hand.length} carte · ${p.score} pt</small></div>`).join('');
   const melds=G.melds.map((m,i)=>`<div class="meld" data-act="meld" data-i="${i}"><i class="own o${m.owner}">${TG[m.owner]}</i>${m.cards.map(x=>mini(x,m)).join('')}</div>`).join('')||'<div class="empty">Nessuna combinazione sul tavolo</div>';
   const pt=G.pending.reduce((s,e)=>s+e.pts,0);
-  const pend=G.pending.length?`<div class="pend"><small>Apertura: ${pt}/40 punti</small><div class="row">${G.pending.map(e=>`<div class="meld">${e.cards.map(x=>mini(x,e)).join('')}</div>`).join('')}</div></div>`:'';
+  const pend=G.pending.length?`<div class="pend"><small>Apertura: ${pt}/${OPEN()} punti</small><div class="row">${G.pending.map(e=>`<div class="meld">${e.cards.map(x=>mini(x,e)).join('')}</div>`).join('')}</div></div>`:'';
   const hint=OPT.coach&&!ON&&myTurn&&(G.phase==='draw'||G.phase==='play')?coachCached():null,tips=new Set(hint&&hint.sel||[]);
   const hand=me.hand.map(c=>cardHTML(c,{sel:G.sel.has(c.id),isNew:c.id===G.newId,must:c.id===G.mustUse,tip:tips.has(c.id)&&!G.sel.has(c.id)})).join('');
   const can=myTurn&&G.phase==='play';
@@ -459,7 +470,7 @@ function gameHTML(){
    ${can&&G.mustUse!==null&&!G.acted?'<button class="sec" data-act="putback" title="Rimetti lo scarto">↩</button>':''}
    ${!ON?`<button class="sec${OPT.coach?' on':''}" data-act="hint" title="Istruttore: acceso/spento">💡</button>`:''}
    <button data-act="lay" ${can&&G.sel.size>=3?'':'disabled'}>Cala</button>
-   ${G.pending.length?`<button data-act="open" ${pt>=40?'':'disabled'}>Apri</button><button data-act="undo">Annulla</button>`:''}
+   ${G.pending.length?`<button data-act="open" ${pt>=OPEN()?'':'disabled'}>Apri</button><button data-act="undo">Annulla</button>`:''}
    <button data-act="discard" ${can&&G.sel.size===1?'':'disabled'}>Scarta</button>
   </div>`;
 }
@@ -471,6 +482,7 @@ function render(){
   if(UI.choose)h+=chooseHTML();
   if(UI.pick2)h+=pick2HTML();
   if(UI.rules)h+=menuHTML();
+  else if(UI.vars)h+=varsHTML();
   else if(UI.menu)h+=`<div class="ov"><div class="box"><h2>Menu</h2>${optsHTML()}<button data-act="newgame">Nuova partita</button>${G?'<button class="sec" data-act="exit">Fine partita ed esci</button>':''}<button class="sec" data-act="rules">Guida e regole</button><button class="sec" data-act="menu">Chiudi</button>${verHTML()}${UPD?'<p style="margin:6px 0 0;color:#ffd54f">Aggiornamento pronto: si installa a fine partita.</p>':''}</div></div>`;
   app.className='s'+OPT.size;
   if(ON&&ON.note)h+=`<div class="note">${esc(ON.note)}</div>`;
@@ -493,7 +505,7 @@ function layMeld(ev,cards){
   const me=H(),ids=new Set(cards.map(c=>c.id));
   me.hand=me.hand.filter(c=>!ids.has(c.id));G.sel.clear();
   if(me.opened){G.acted=true;G.melds.push({owner:0,...ev});say('Combinazione calata (+'+ev.pts+').');if(closeIfEmpty())return;}
-  else{G.pending.push(ev);const t=G.pending.reduce((s,e)=>s+e.pts,0);say(t>=40?'Raggiunti '+t+' punti: premi Apri.':'Apertura: '+t+'/40 punti. Aggiungi altre combinazioni.');}
+  else{G.pending.push(ev);const t=G.pending.reduce((s,e)=>s+e.pts,0);say(t>=OPEN()?'Raggiunti '+t+' punti: premi Apri.':'Apertura: '+t+'/'+OPEN()+' punti. Aggiungi altre combinazioni.');}
   render();
 }
 function chooseHTML(){
@@ -515,9 +527,9 @@ function coachHint(){
     const must=top.j?{j:true}:{s:top.s,r:top.r};
     const sol=solve(hand.concat([top]),must);
     const free=OPT.rule===2||(OPT.rule===1&&me.opened);
-    if(sol&&(me.opened||sol.pts>=40))return{text:'💡 Prendi lo scarto ('+cs(top)+'): con quella carta puoi calare '+sol.pts+' punti.'};
+    if(sol&&(me.opened||sol.pts>=OPEN()))return{text:'💡 Prendi lo scarto ('+cs(top)+'): con quella carta puoi calare '+sol.pts+' punti.'};
     if(me.opened&&free&&!top.j&&tryAttach(top))return{text:'💡 Prendi lo scarto ('+cs(top)+'): si attacca a una combinazione sul tavolo.'};
-    return{text:'💡 Pesca dal mazzo: lo scarto ('+cs(top)+') non ti aiuta a calare combinazioni'+(me.opened?'.':' da 40 punti.')};
+    return{text:'💡 Pesca dal mazzo: lo scarto ('+cs(top)+') non ti aiuta a calare combinazioni'+(me.opened?'.':' da '+OPEN()+' punti.')};
   }
   if(G.phase!=='play')return{text:''};
   const forced=G.mustUse!==null&&!G.acted?hand.find(c=>c.id===G.mustUse):null;
@@ -526,8 +538,8 @@ function coachHint(){
       for(const c of hand){if(jokerSwap(m,c))return{text:'💡 Puoi prendere un jolly dal tavolo: seleziona '+cs(c)+' e poi tocca la combinazione con il jolly.',sel:[c.id]};}}
   }
   const must=forced?(forced.j?{j:true}:{s:forced.s,r:forced.r}):null;
-  const sol=solve(hand,must,0,{cards:true,minPts:me.opened?0:40,maxCards:hand.length-1});
-  if(sol&&(me.opened||sol.pts>=40)&&sol.melds.length){
+  const sol=solve(hand,must,0,{cards:true,minPts:me.opened?0:OPEN(),maxCards:hand.length-1});
+  if(sol&&(me.opened||sol.pts>=OPEN())&&sol.melds.length){
     const first=sol.melds[0],rest=sol.melds.length-1;
     return{text:'💡 '+(me.opened?'Puoi calare: ':'Puoi aprire! ')+'seleziona le carte evidenziate e premi Cala ('+sol.pts+' punti in tutto'+(rest?', poi le altre '+rest+' combinazioni':'')+').',sel:first.map(c=>c.id)};
   }
@@ -536,9 +548,10 @@ function coachHint(){
     for(const c of hand){if(!c.j&&tryAttach(c))return{text:'💡 Puoi attaccare '+cs(c)+' a una combinazione sul tavolo: selezionala e tocca la combinazione.',sel:[c.id]};}
   }
   const d=pickDiscard(hand,dangerFor(0),0);
-  return{text:'💡 '+(me.opened?'':'Non puoi ancora aprire (servono 40 punti). ')+'Scarta '+cs(d)+': è la carta che ti serve meno e che aiuta meno gli avversari.',sel:[d.id]};
+  return{text:'💡 '+(me.opened?'':'Non puoi ancora aprire (servono '+OPEN()+' punti). ')+'Scarta '+cs(d)+': è la carta che ti serve meno e che aiuta meno gli avversari.',sel:[d.id]};
 }
 function jokerSwap(m,card){
+  if(RU().swap===false)return null;
   const ji=m.cards.findIndex(x=>x.c.j);if(ji<0||card.j)return null;
   const jt=m.cards[ji],real=m.cards.filter(x=>!x.c.j).map(x=>x.c);
   if(m.type==='set'){if(card.r!==jt.p||real.some(c=>c.s===card.s))return null;}
@@ -574,6 +587,8 @@ function act(a,d){
   if(a==='start'){startGame(+d.n);return;}
   if(a==='rules'){UI.rules=!UI.rules;render();return;}
   if(a==='menu'){UI.menu=!UI.menu;render();return;}
+  if(a==='vars'){UI.vars=!UI.vars;render();return;}
+  if(a==='vopen'||a==='vace'||a==='vpen'||a==='vswap'){const r=OPT.rl;if(a==='vopen')r.open=r.open===40?51:40;else if(a==='vace')r.ace=1-r.ace;else if(a==='vpen')r.pen=(r.pen+1)%3;else r.swap=!r.swap;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='optsize'||a==='optrule'||a==='optgame'||a==='optdiff'){const k={optsize:'size',optrule:'rule',optgame:'game',optdiff:'diff'}[a];OPT[k]=(OPT[k]+1)%({size:5,rule:3,game:4,diff:4}[k]);try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='optcards'){OPT.cards=(OPT.cards+1)%3;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='optdecks'){OPT.decks=OPT.decks===3?2:3;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
@@ -625,13 +640,13 @@ function act(a,d){
       G.pending=[];say('Combinazioni rimesse in mano.');render();break;}
     case'open':{
       const t=G.pending.reduce((s,e)=>s+e.pts,0);
-      if(t<40){toast('Servono almeno 40 punti per aprire.');return;}
+      if(t<OPEN()){toast('Servono almeno '+OPEN()+' punti per aprire.');return;}
       for(const e of G.pending)G.melds.push({owner:0,...e});
       G.pending=[];me.opened=true;G.acted=true;say('Aperto con '+t+' punti! Ora puoi attaccare carte.');
       if(closeIfEmpty())return;render();break;}
     case'meld':{
       if(G.phase!=='play')return;
-      if(!me.opened){toast('Devi prima aprire con 40 punti.');return;}
+      if(!me.opened){toast('Devi prima aprire con '+OPEN()+' punti.');return;}
       if(!G.sel.size){toast('Seleziona le carte da attaccare (o la carta che sostituisce un jolly).');return;}
       const picked=me.hand.filter(c=>G.sel.has(c.id)),m=G.melds[+d.i];
       const sw=picked.length===1?jokerSwap(m,picked[0]):null;
