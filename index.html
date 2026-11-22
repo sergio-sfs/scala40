@@ -358,12 +358,12 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.11.0',BUILD='22/11/2026';
+const VERSION='1.11.1',BUILD='22/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false,coach:false,net:'p2p'};
-try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;OPT.coach=o.coach===true;OPT.net=o.net==='mqtt'?'mqtt':'p2p';}catch(e){}
+try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;OPT.coach=o.coach===true;OPT.net=o.net==='mqtt'||o.net==='ntfy'?o.net:'p2p';}catch(e){}
 const SIZES=['Normali','Grandi','Molto grandi','Enormi','Auto (adatta)'],RULES=['Classica: devi usarlo subito','Libera dopo l\'apertura','Libera sempre'],GAMES=['Secca (una mano)','A 51 punti','A 101 punti','A 201 punti'];
-const LEVELS=['Facile','Normale','Difficile','Esperto'],NETS={p2p:'Diretto (Wi-Fi)',mqtt:'MQTT (anche rete mobile)'};
+const LEVELS=['Facile','Normale','Difficile','Esperto'],NETS={p2p:'Diretto (Wi-Fi)',mqtt:'MQTT (anche rete mobile)',ntfy:'ntfy (anche rete mobile, lento)'},NEXTNET={p2p:'mqtt',mqtt:'ntfy',ntfy:'p2p'};
 const verHTML=()=>`<p style="margin:12px 0 0;opacity:.8">Scala 40 · versione <b>${VERSION}</b> (${BUILD})</p>`;
 function optsHTML(){return`<button class="sec opt" data-act="optsize">🔍 Carte: <b>${SIZES[OPT.size]}</b></button><button class="sec opt" data-act="optrule">🃏 Scarto preso: <b>${RULES[OPT.rule]}</b></button><button class="sec opt" data-act="optgame">🎯 Partita: <b>${GAMES[OPT.game]}</b></button><button class="sec opt" data-act="optdiff">🤖 Difficoltà: <b>${LEVELS[OPT.diff]}</b></button><button class="sec opt" data-act="optnet">🌐 Online: <b>${NETS[OPT.net]}</b></button>`;}
 function cardHTML(c,o={}){
@@ -394,7 +394,7 @@ function menuHTML(){
   <li><b>Difficile</b>: sbaglia poco e prende i jolly dal tavolo.</li>
   <li><b>Esperto</b>: non sbaglia occasioni, cala il massimo di carte possibile, scambia i jolly ed evita di scartare ciò che serve agli avversari.</li></ul>
   <h3 style="margin:12px 0 2px">Online con amici</h3><ul>
-  <li>Serve la parola d'accesso (te la dà chi ti invita; la scrivi la prima volta su ogni dispositivo). Dal menu iniziale: 🌐 Gioca online → Crea stanza, poi invia link e codice. Gli amici aprono il link, vanno su Gioca online e scrivono parola d'accesso, nome e codice stanza. Chi crea la stanza decide quando avviare e gestisce i passaggi di mano; i posti liberi li occupa il computer. Tutti devono tenere l'app aperta: se qualcuno esce, il computer prende il suo posto.</li><li><b>Collegamento</b>: «Diretto» va bene con lo stesso Wi-Fi; con la rete mobile (senza Wi-Fi) chi crea la stanza sceglie «MQTT» (anche in Impostazioni → Online): passa da un servizio pubblico, i messaggi sono cifrati con la parola d'accesso. Il codice stanza MQTT è di 5 caratteri e inizia con M: gli amici non devono scegliere nulla.</li></ul>
+  <li>Serve la parola d'accesso (te la dà chi ti invita; la scrivi la prima volta su ogni dispositivo). Dal menu iniziale: 🌐 Gioca online → Crea stanza, poi invia link e codice. Gli amici aprono il link, vanno su Gioca online e scrivono parola d'accesso, nome e codice stanza. Chi crea la stanza decide quando avviare e gestisce i passaggi di mano; i posti liberi li occupa il computer. Tutti devono tenere l'app aperta: se qualcuno esce, il computer prende il suo posto.</li><li><b>Collegamento</b>: «Diretto» va bene con lo stesso Wi-Fi; con la rete mobile (senza Wi-Fi) chi crea la stanza sceglie «MQTT» o «ntfy» (anche in Impostazioni → Online): passa da un servizio pubblico, i messaggi sono cifrati con la parola d'accesso (ntfy è più lento: aggiorna le mosse ogni qualche secondo). Il codice stanza è di 5 caratteri e inizia con M (MQTT) o N (ntfy): gli amici non devono scegliere nulla.</li></ul>
   <h3 style="margin:12px 0 2px">Comandi</h3><ul>
   <li>Trascina le carte per riordinarle (se ne selezioni più d'una si spostano insieme); ⇅ le ordina; ↔ distanzia le carte sul tavolo.</li>
   <li>💡 (solo contro il computer) accende o spegne l'istruttore: quando è acceso (pulsante illuminato) ad ogni tuo passo suggerisce se pescare o prendere lo scarto, cosa calare, cosa attaccare e quale carta scartare, e segna le carte consigliate con un bordo tratteggiato. Decidi tu se seguirlo. Ritoccalo per spegnerlo.</li>
@@ -548,7 +548,7 @@ function act(a,d){
   if(a==='rules'){UI.rules=!UI.rules;render();return;}
   if(a==='menu'){UI.menu=!UI.menu;render();return;}
   if(a==='optsize'||a==='optrule'||a==='optgame'||a==='optdiff'){const k={optsize:'size',optrule:'rule',optgame:'game',optdiff:'diff'}[a];OPT[k]=(OPT[k]+1)%({size:5,rule:3,game:4,diff:4}[k]);try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
-  if(a==='optnet'){OPT.net=OPT.net==='mqtt'?'p2p':'mqtt';try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
+  if(a==='optnet'){OPT.net=NEXTNET[OPT.net]||'p2p';try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='hint'){if(ON)return;OPT.coach=!OPT.coach;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(a==='spread'){OPT.spread=!OPT.spread;try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}render();return;}
   if(/^(online|oback|ocreate|ojoin|oseats|ograce|ostart|oshare|onet)$/.test(a)){onAct(a);return;}
@@ -683,7 +683,7 @@ const PEERJS='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js',CODEC='ABCDEFGH
 const getNick=()=>{try{return localStorage.getItem('scala40nick')||'';}catch(e){return'';}};
 const setNick=n=>{try{localStorage.setItem('scala40nick',n);}catch(e){}};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function loadPeer(cb){if(ON&&ON.net==='mqtt')return cb(true);if(typeof Peer!=='undefined')return cb(true);const s=document.createElement('script');s.src=PEERJS;s.onload=()=>cb(true);s.onerror=()=>cb(false);document.head.appendChild(s);}
+function loadPeer(cb){if(ON&&(ON.net==='mqtt'||ON.net==='ntfy'))return cb(true);if(typeof Peer!=='undefined')return cb(true);const s=document.createElement('script');s.src=PEERJS;s.onload=()=>cb(true);s.onerror=()=>cb(false);document.head.appendChild(s);}
 /* ===== Collegamento MQTT (alternativa al diretto: funziona anche con la rete mobile) ===== */
 const MQTTJS='https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js';
 let BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://mqtt.eclipseprojects.io:443/mqtt'];
@@ -695,35 +695,99 @@ async function mqKeys(code){
   const root=Array.from((await h('t|'+k+'|'+code)).slice(0,10)).map(x=>x.toString(16).padStart(2,'0')).join('');
   return{root:'scala40/'+root,key:await crypto.subtle.importKey('raw',await h('k|'+k+'|'+code),'AES-GCM',false,['encrypt','decrypt'])};
 }
-async function mqEnc(key,o){const iv=crypto.getRandomValues(new Uint8Array(12)),ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(JSON.stringify(o)))),r=new Uint8Array(12+ct.length);r.set(iv);r.set(ct,12);return _b64(r);}
-async function mqDec(key,t){try{const u=_unb64(t);return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:u.subarray(0,12)},key,u.subarray(12))));}catch(e){return null;}}
+async function zip(u,en){const cs=en?new CompressionStream('deflate'):new DecompressionStream('deflate'),w=cs.writable.getWriter();w.write(u);w.close();return new Uint8Array(await new Response(cs.readable).arrayBuffer());}
+async function mqEnc(key,o,z){let b=new TextEncoder().encode(JSON.stringify(o));if(z&&typeof CompressionStream!=='undefined'){try{const c=await zip(b,true),x=new Uint8Array(c.length+1);x[0]=1;x.set(c,1);b=x;}catch(e){}}
+  const iv=crypto.getRandomValues(new Uint8Array(12)),ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,b)),r=new Uint8Array(12+ct.length);r.set(iv);r.set(ct,12);return _b64(r);}
+async function mqDec(key,t){try{const u=_unb64(t);let b=new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:u.subarray(0,12)},key,u.subarray(12)));if(b[0]===1)b=await zip(b.subarray(1),false);return JSON.parse(new TextDecoder().decode(b));}catch(e){return null;}}
+
+/* ===== ntfy (servizio pubblico di messaggi, via HTTP): stessa interfaccia minima di mqtt.js ===== */
+let NTFYS=['https://ntfy.sh/'],NT_COAL=2500,NT_BURST=40,NT_REFILL=6000;
+const _sl=ms=>new Promise(r=>setTimeout(r,ms));
+class NtfyClient{
+  constructor(base){this.base=base;this.h={};this.connected=false;this.reconnecting=true;this.ended=false;this.topic=null;this.subcb=[];this.asm={};this.q=[];this.busy=false;this.tok=NT_BURST;this.tt=Date.now();setTimeout(()=>this.emit('connect'),0);}
+  on(e,f){(this.h[e]=this.h[e]||[]).push(f);}
+  emit(e,a,b){(this.h[e]||[]).slice().forEach(f=>f(a,b));}
+  subscribe(topic,o,cb){if(!this.topic){this.topic=String(topic).replace(/\//g,'-');this._loop();}if(cb){if(this.connected)cb(null);else this.subcb.push(cb);}}
+  async _loop(){
+    while(!this.ended){
+      const ac=new AbortController();this.ac=ac;
+      try{
+        const r=await fetch(this.base+this.topic+'/json',{signal:ac.signal});
+        if(!r.ok)throw new Error('http'+r.status);
+        const rd=r.body.getReader(),dec=new TextDecoder();let buf='';
+        for(;;){const x=await rd.read();if(x.done)break;buf+=dec.decode(x.value,{stream:true});let i;while((i=buf.indexOf('\n'))>=0){const ln=buf.slice(0,i);buf=buf.slice(i+1);if(ln.trim())this._line(ln);}}
+      }catch(e){}
+      if(this.ended)return;
+      this.connected=false;this.reconnecting=true;this.emit('close');
+      await _sl(2000);
+    }
+  }
+  _line(l){let o;try{o=JSON.parse(l);}catch(e){return;}
+    if(o.event==='open'){if(!this.connected){this.connected=true;this.reconnecting=false;const c=this.subcb;this.subcb=[];c.forEach(f=>f(null));this.emit('connect');}return;}
+    if(o.event==='message'&&typeof o.message==='string')this._chunk(o);}
+  _chunk(o){
+    const m=/^([A-Za-z0-9]{6})~(\d+)~(\d+)~/.exec(o.message);if(!m)return;
+    const id=m[1],i=+m[2],n=+m[3],d=o.message.slice(m[0].length),now=Date.now();
+    if(n===1){this.emit('message',o.topic,d);return;}
+    for(const k in this.asm)if(now-this.asm[k].t>300000)delete this.asm[k];
+    const a=this.asm[id]||(this.asm[id]={p:[],c:0,t:now});if(!a.p[i]){a.p[i]=d;a.c++;}
+    if(a.c===n){delete this.asm[id];this.emit('message',o.topic,a.p.join(''));}
+  }
+  publish(topic,payload){
+    const t=String(topic).replace(/\//g,'-'),n=Math.ceil(payload.length/3000)||1,id=Math.random().toString(36).slice(2,8).padEnd(6,'0');
+    for(let i=0;i<n;i++)this.q.push({t,p:id+'~'+i+'~'+n+'~'+payload.slice(i*3000,(i+1)*3000),e:0});
+    this._drain();
+  }
+  async _drain(){
+    if(this.busy)return;this.busy=true;
+    while(this.q.length&&!this.ended){
+      const now=Date.now();this.tok=Math.min(NT_BURST,this.tok+(now-this.tt)/NT_REFILL);this.tt=now;
+      if(this.tok<1){await _sl((1-this.tok)*NT_REFILL);continue;}
+      const m=this.q[0];
+      try{const r=await fetch(this.base+m.t,{method:'POST',body:m.p});
+        if(r.status===429){this.tok=0;this.tt=Date.now();await _sl((+r.headers.get('retry-after')||10)*1000);continue;}
+        this.q.shift();this.tok-=1;
+      }catch(e){await _sl(2000);if(++m.e>5)this.q.shift();}
+    }
+    this.busy=false;
+  }
+  end(){this.ended=true;try{this.ac&&this.ac.abort();}catch(e){}}
+  cut(){try{this.ac&&this.ac.abort();}catch(e){}}
+  reconnect(){}
+}
 class MqttConn{
   constructor(p,cid){this.p=p;this.cid=cid;this.h={};this.open=false;this.closed=false;this.out=0;this.inn=0;this.q=Promise.resolve();}
   on(e,f){(this.h[e]=this.h[e]||[]).push(f);}
   emit(e,a){(this.h[e]||[]).slice().forEach(f=>f(a));}
-  _pub(env){const p=this.p;env.f=p.cid;this.q=this.q.then(async()=>{if(p.ended||!p.cl)return;const t=await mqEnc(p.K.key,env);p.cl.publish(p.host?p.K.root+'/c/'+this.cid:p.K.root+'/h',t,{qos:1});}).catch(()=>{});}
-  send(d){if(!this.open||this.closed)return;this._pub({k:'d',n:++this.out,d});}
-  close(){if(this.closed)return;this.closed=true;this.open=false;this._pub({k:'x'});this.emit('close');}
+  _pub(env){const p=this.p;env.f=p.cid;this.q=this.q.then(async()=>{if(p.ended||!p.cl)return;const t=await mqEnc(p.K.key,env,p.slow);p.cl.publish(p.host?p.K.root+'/c/'+this.cid:p.K.root+'/h',t,{qos:1});}).catch(()=>{});}
+  send(d){if(!this.open||this.closed)return;
+    if(this.p.slow){
+      if(d.t==='st'||(d.t==='upd'&&!d.done&&!d.close)){this.pend=d;if(!this.pt)this.pt=setTimeout(()=>this._flush(),NT_COAL);return;}
+      if(this.pend){if(d.t==='turn'||d.t==='upd'){this.pend=null;clearTimeout(this.pt);this.pt=null;}else if(d.t==='draw'||d.t==='card'||d.t==='empty')this._flush();}
+    }
+    this._pub({k:'d',n:++this.out,d});}
+  _flush(){clearTimeout(this.pt);this.pt=null;const d=this.pend;this.pend=null;if(d&&this.open&&!this.closed)this._pub({k:'d',n:++this.out,d});}
+  close(){if(this.closed)return;this.closed=true;this.open=false;this.pend=null;clearTimeout(this.pt);this._pub({k:'x'});this.emit('close');}
   _gone(){if(this.closed)return;this.closed=true;this.open=false;this.emit('close');}
 }
 class MqttPeer{
   constructor(id,cd){
     this.h={};this.destroyed=false;this.ended=false;this.disconnected=false;this.opened=false;this.host=!!id;
     this.code=String(id||cd||'').replace(PFX,'');this.cid=this.host?'h':Math.random().toString(36).slice(2,10);
-    this.conns={};this.bi=0;this.fails=0;this.rq=Promise.resolve();
-    loadMqtt(ok=>{if(this.destroyed)return;if(!ok){this._err('network');return;}mqKeys(this.code).then(K=>{if(this.destroyed)return;this.K=K;this._conn();}).catch(()=>this._err('network'));});
+    this.conns={};this.bi=0;this.fails=0;this.rq=Promise.resolve();this.nt=!!(ON&&ON.net==='ntfy');this.slow=this.nt;
+    (this.nt?(f=>f(true)):loadMqtt)(ok=>{if(this.destroyed)return;if(!ok){this._err('network');return;}mqKeys(this.code).then(K=>{if(this.destroyed)return;this.K=K;this._conn();}).catch(()=>this._err('network'));});
   }
   on(e,f){(this.h[e]=this.h[e]||[]).push(f);}
   emit(e,a){(this.h[e]||[]).slice().forEach(f=>f(a));}
   _err(t){this.emit('error',{type:t});}
   _conn(){
-    const cl=mqtt.connect(BROKERS[this.bi%BROKERS.length],{clientId:'s40'+Math.random().toString(36).slice(2,12),clean:true,reconnectPeriod:2000,connectTimeout:8000,keepalive:20});
+    const cl=this.nt?new NtfyClient(NTFYS[this.bi%NTFYS.length]):mqtt.connect(BROKERS[this.bi%BROKERS.length],{clientId:'s40'+Math.random().toString(36).slice(2,12),clean:true,reconnectPeriod:2000,connectTimeout:8000,keepalive:20});
     this.cl=cl;const topic=this.host?this.K.root+'/h':this.K.root+'/c/'+this.cid;
     cl.on('connect',()=>{this.fails=0;this.disconnected=false;cl.subscribe(topic,{qos:1},err=>{if(err||this.destroyed||this.cl!==cl)return;if(!this.opened){this.opened=true;this.emit('open',this.cid);}});});
     cl.on('message',(t,pl)=>{this.rq=this.rq.then(()=>mqDec(this.K.key,pl.toString())).then(m=>{if(m&&!this.destroyed)this._rx(m);}).catch(()=>{});});
     cl.on('close',()=>{if(this.destroyed||this.cl!==cl)return;
       if(this.opened){if(!this.disconnected){this.disconnected=true;this.emit('disconnected');}return;}
-      if(++this.fails>=2){this.fails=0;try{cl.end(true);}catch(e){}if(++this.bi>=BROKERS.length*2){this._err('network');return;}this._conn();}});
+      if(++this.fails>=2){this.fails=0;try{cl.end(true);}catch(e){}if(++this.bi>=(this.nt?NTFYS:BROKERS).length*2){this._err('network');return;}this._conn();}});
     cl.on('error',()=>{});
   }
   reconnect(){try{if(this.cl&&!this.destroyed&&!this.cl.connected&&!this.cl.reconnecting)this.cl.reconnect();}catch(e){}}
@@ -748,7 +812,9 @@ class MqttPeer{
   }
   destroy(){if(this.destroyed)return;Object.values(this.conns).forEach(c=>c.close());this.destroyed=true;setTimeout(()=>{this.ended=true;try{this.cl&&this.cl.end(true);}catch(e){}},400);}
 }
-const newPeer=id=>ON&&ON.net==='mqtt'?new MqttPeer(id,ON.code):new Peer(id,PEERCFG);
+const newPeer=id=>ON&&(ON.net==='mqtt'||ON.net==='ntfy')?new MqttPeer(id,ON.code):new Peer(id,PEERCFG);
+let NT_PING=40000,NT_CDOWN=100000,NT_HDROP=150000;
+const NT=()=>ON&&ON.net==='ntfy'?{ping:NT_PING,cdown:NT_CDOWN,hdrop:NT_HDROP}:{ping:4000,cdown:14000,hdrop:22000};
 const inviteUrl=()=>location.origin+location.pathname;
 function onlineHTML(){
   const o=ON,players=(o.role==='host'?o.nicks:o.players||[]).map(esc).join(', ');
@@ -766,11 +832,11 @@ function onFail(m){if(!ON)return;ON.err=m;ON.state=(ON.state==='playing'||ON.sta
 function onHost(nick){
   setTimeout(wake,0);
   ON={role:'host',state:'starting',nick,seats:3,grace:3,conns:{},nicks:[nick],err:'',code:'',net:OPT.net};render();
-  ON.pt=setInterval(()=>{if(!ON||ON.role!=='host')return;const now=Date.now();const cs=G?G.players.filter(p=>p.remote&&p.conn).map(p=>p.conn):Object.values(ON.conns);cs.forEach(c=>{if(c.last&&now-c.last>22000){try{c.close();}catch(e){}hostLeft(c);}});},5000);
+  ON.pt=setInterval(()=>{if(!ON||ON.role!=='host')return;const now=Date.now();const cs=G?G.players.filter(p=>p.remote&&p.conn).map(p=>p.conn):Object.values(ON.conns);cs.forEach(c=>{if(c.last&&now-c.last>NT().hdrop){try{c.close();}catch(e){}hostLeft(c);}});},5000);
   loadPeer(ok=>{if(!ON)return;if(!ok){onFail('Serve la connessione internet.');return;}mkPeer();});
 }
 function mkPeer(reuse,tries){
-  const code=reuse||(ON.net==='mqtt'?'M':'')+Array.from({length:4},()=>CODEC[Math.random()*CODEC.length|0]).join('');
+  const code=reuse||({mqtt:'M',ntfy:'N'}[ON.net]||'')+Array.from({length:4},()=>CODEC[Math.random()*CODEC.length|0]).join('');
   const p=newPeer(PFX+code);ON.peer=p;
   p.on('open',()=>{if(!ON||ON.peer!==p)return;ON.code=code;if(ON.state==='starting'){ON.state='lobby';render();}});
   p.on('disconnected',()=>{if(ON&&ON.peer===p&&!p.destroyed)setTimeout(()=>{try{p.reconnect();}catch(x){}},1500);});
@@ -862,8 +928,8 @@ function applyUpd(k,m){
 function onJoin(nick,code){
   
   setTimeout(wake,0);
-  ON={role:'client',state:'connecting',nick,code,err:'',players:[],lastRx:Date.now(),net:(code.length===5&&code[0]==='M')?'mqtt':'p2p'};render();
-  ON.pt=setInterval(()=>{if(!ON||ON.role!=='client')return;if(ON.state==='reconnecting'||!ON.conn||!ON.conn.open){if(ON.state==='playing'||ON.state==='waiting')clientDown();return;}if(Date.now()-ON.lastRx>14000){try{ON.conn.close();}catch(e){}clientDown();return;}try{ON.conn.send({t:'ping'});}catch(e){}},4000);
+  ON={role:'client',state:'connecting',nick,code,err:'',players:[],lastRx:Date.now(),net:code.length===5?({M:'mqtt',N:'ntfy'}[code[0]]||'p2p'):'p2p'};render();
+  ON.pt=setInterval(()=>{if(!ON||ON.role!=='client')return;if(ON.state==='reconnecting'||!ON.conn||!ON.conn.open){if(ON.state==='playing'||ON.state==='waiting')clientDown();return;}const nt=NT(),now=Date.now();if(now-ON.lastRx>nt.cdown){try{ON.conn.close();}catch(e){}clientDown();return;}if(now-(ON.lastPing||0)>=nt.ping-300){ON.lastPing=now;try{ON.conn.send({t:'ping'});}catch(e){}}},4000);
   loadPeer(ok=>{
     if(!ON||ON.role!=='client')return;
     if(!ok){onFail('Serve la connessione internet.');return;}
@@ -949,7 +1015,7 @@ async function onAct(a){
   if(a==='oback'){leaveOnline();render();return;}
   if(a==='ocreate'){const n=val('nick'),k=val('key');ON.key=k;ON.nick=n;if(!n){ON.err='Scrivi il tuo nome.';render();return;}if(!(await okKey(k))){ON.err='Parola d\'accesso errata.';render();return;}setNick(n);setKey(k);onHost(n);return;}
   if(a==='ojoin'){const n=val('nick'),c=val('code').toUpperCase(),k=val('key');ON.nick=n;ON.code=c;ON.key=k;if(!n||c.length<4){ON.err='Scrivi nome e codice stanza.';render();return;}if(!(await okKey(k))){ON.err='Parola d\'accesso errata.';render();return;}setNick(n);setKey(k);onJoin(n,c);return;}
-  if(a==='onet'){OPT.net=OPT.net==='mqtt'?'p2p':'mqtt';try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}if(ON){ON.nick=val('nick')||ON.nick;ON.key=val('key')||ON.key;}render();return;}
+  if(a==='onet'){OPT.net=NEXTNET[OPT.net]||'p2p';try{localStorage.setItem('scala40opt',JSON.stringify(OPT));}catch(e){}if(ON){ON.nick=val('nick')||ON.nick;ON.key=val('key')||ON.key;}render();return;}
   if(a==='oseats'){ON.seats=ON.seats>=4?Math.max(2,ON.nicks.length):ON.seats+1;if(ON.seats<ON.nicks.length)ON.seats=ON.nicks.length;render();return;}
   if(a==='ograce'){ON.grace={1:3,3:5,5:10,10:1}[ON.grace]||3;render();return;}
   if(a==='ostart'){onStart();return;}
