@@ -37,7 +37,7 @@ html,body{margin:0;height:100%;overscroll-behavior:none;-webkit-user-select:none
 .card.tip{outline:3px dashed #80d8ff;outline-offset:1px}
 .coach{margin:0 8px 4px;padding:6px 10px;background:#80d8ff26;border:1px solid #80d8ff88;border-radius:10px;font-size:var(--tx);line-height:1.25}
 input{-webkit-user-select:text;user-select:text;width:100%;font-size:18px;padding:10px;border-radius:10px;border:0;background:#fff;color:#111}
-#tbl{flex:1 1 0;min-height:80px;overflow:auto;margin:6px 8px;background:#0a5a3a;border-radius:12px;padding:6px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px;min-height:80px}
+#tbl{flex:1 1 0;min-height:80px;overflow:auto;margin:6px 8px;background:repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 3px),radial-gradient(ellipse at 50% 30%,#13744c 0,#0a5a3a 62%,#06402b 100%);box-shadow:inset 0 0 20px rgba(0,0,0,.6),0 0 0 2px #04271b;border-radius:12px;padding:6px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px;min-height:80px}
 .empty{opacity:.6;font-size:var(--tx);margin:auto}
 .meld{display:flex;align-items:center;background:#0000002e;border-radius:8px;padding:3px 4px;position:relative;cursor:pointer}
 .meld .card+.card{margin-left:calc(var(--cw)*-.42)}
@@ -56,7 +56,8 @@ input{-webkit-user-select:text;user-select:text;width:100%;font-size:18px;paddin
 .pend{margin:0 8px 4px;padding:4px 6px;border:1px dashed #ffd54f;border-radius:10px}
 .pend .row{display:flex;flex-wrap:wrap;gap:6px;margin-top:3px}
 .hand{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;padding:12px 6px 4px;min-height:98px}
-.card{width:var(--cw);height:var(--ch);border-radius:6px;background:#fff;color:#111;border:1px solid #bbb;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs);line-height:1.05;user-select:none;flex:0 0 auto;position:relative;transition:transform .12s}
+.card{width:var(--cw);height:var(--ch);border-radius:6px;background:#fff;color:#111;border:1px solid #bbb;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs);line-height:1.05;user-select:none;flex:0 0 auto;position:relative;transition:transform .12s;box-shadow:0 2px 4px rgba(0,0,0,.45)}
+.card::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(158deg,rgba(255,255,255,.6),rgba(255,255,255,0) 42%,rgba(0,0,0,.07));box-shadow:inset 0 0 0 1px rgba(255,255,255,.7)}
 .card.k0{color:#111}
 .card.k1{color:#d32f2f;background:#fff1f1}
 .card.k2{color:#1565c0;background:#eaf2ff}
@@ -69,7 +70,7 @@ input{-webkit-user-select:text;user-select:text;width:100%;font-size:18px;paddin
 .card.must{box-shadow:0 0 0 3px #80d8ff}
 .card.new::after{content:"";position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:#00c853}
 
-.card.joker{color:#6a1b9a;background:#f3e5f5}
+.card.joker{color:#6a1b9a;background:radial-gradient(circle at 50% 32%,#fff 0,#f3e5f5 52%,#d6b2e6 100%);border-color:#b58ad0;text-shadow:0 1px 0 #fff}
 .card.d1{justify-content:space-between;align-items:stretch;padding:2px 3px;position:relative;font-weight:700}
 .card.d1 .ci{display:flex;flex-direction:column;align-items:flex-start;line-height:1;font-size:calc(var(--fs)*.66);z-index:1}
 .card.d1 .ci i{font-style:normal;font-size:calc(var(--fs)*.62)}
@@ -80,7 +81,8 @@ input{-webkit-user-select:text;user-select:text;width:100%;font-size:18px;paddin
 .card.d2 .rk{font-size:calc(var(--fs)*1.6);line-height:.95;letter-spacing:-1px}
 .card.d2 .su{font-size:calc(var(--fs)*1.15)}
 .card .tiny{font-size:11px}
-.card.back{background:repeating-linear-gradient(45deg,#1e4d8c,#1e4d8c 4px,#2a62ae 4px,#2a62ae 8px);border:2px solid #fff}
+.card.back{background:repeating-linear-gradient(45deg,rgba(255,255,255,.13) 0 2px,transparent 2px 7px),repeating-linear-gradient(-45deg,rgba(255,255,255,.13) 0 2px,transparent 2px 7px),radial-gradient(circle at 50% 38%,#3a78c8,#16427f);border:2px solid #fff;box-shadow:inset 0 0 0 3px #16427f,inset 0 0 0 4.5px rgba(255,255,255,.55),0 2px 5px rgba(0,0,0,.55)}
+.card.back::before{display:none}
 .card.ghost{background:#0000002e;border:1px dashed #fff6}
 .card.sm{width:var(--cw);height:var(--ch);font-size:var(--fs)}
 .card.sm .su{font-size:calc(var(--fs)*1.3)}
@@ -376,7 +378,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.16.1',BUILD='22/11/2026';
+const VERSION='1.17.0',BUILD='23/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false,coach:false,net:'p2p',decks:2,cards:0,rl:{open:40,ace:0,pen:0,swap:true}};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;OPT.coach=o.coach===true;OPT.net=o.net==='mqtt'||o.net==='ntfy'?o.net:'p2p';OPT.decks=o.decks===3?3:2;OPT.cards=o.cards===1||o.cards===2?o.cards:0;if(o.rl){const r=o.rl;OPT.rl={open:r.open===51?51:40,ace:r.ace===1?1:0,pen:r.pen===1||r.pen===2?r.pen:0,swap:r.swap!==false};}}catch(e){}
@@ -395,10 +397,13 @@ function varsHTML(){
 function optsHTML(){return`<button class="sec opt" data-act="optsize">🔍 Carte: <b>${SIZES[OPT.size]}</b></button><button class="sec opt" data-act="vars">⚙️ Varianti di regola…</button><button class="sec opt" data-act="optgame">🎯 Partita: <b>${GAMES[OPT.game]}</b></button><button class="sec opt" data-act="optdiff">🤖 Difficoltà: <b>${LEVELS[OPT.diff]}</b></button><button class="sec opt" data-act="optnet">🌐 Online: <b>${NETS[OPT.net]}</b></button><button class="sec opt" data-act="optcards">🎴 Grafica carte: <b>${CARDS[OPT.cards]}</b></button><button class="sec opt" data-act="optdecks">🂠 Mazzi: <b>${DECKS[OPT.decks]}</b></button>`;}
 const CK=()=>(ON&&ON.role==='client'&&G&&G.cards!==undefined)?G.cards:OPT.cards;
 function face(r){
-  const hd='<circle cx="20" cy="23" r="8" fill="#fff" stroke="currentColor" stroke-width="2"/>',sh='<path d="M6 52Q8 36 20 34Q32 36 34 52Z" fill="currentColor"/>';
-  const f=r===13?'<path d="M8 15L11 4L17 10L20 2L23 10L29 4L32 15Z" fill="currentColor"/>'+hd+'<path d="M12 26Q20 42 28 26Q20 31 12 26Z" fill="currentColor"/>'+sh
-    :r===12?'<path d="M10 15L12 6L16 11L20 4L24 11L28 6L30 15Z" fill="currentColor"/>'+hd+'<path d="M11 19Q8 33 14 38L14 25ZM29 19Q32 33 26 38L26 25Z" fill="currentColor"/>'+sh
-    :'<path d="M9 16Q20 0 31 16Z" fill="currentColor"/><path d="M27 9Q39 2 36 15" stroke="currentColor" fill="none" stroke-width="2"/>'+hd+'<path d="M13 35L20 41L27 35" stroke="#fff" fill="none" stroke-width="2"/>'+sh;
+  const K='stroke="#000" stroke-opacity=".35" stroke-width=".8"',sk='#f1c9a5',gd='fill="#f2c230" stroke="#8a5a00" stroke-width="1"';
+  const sh=`<path d="M5 52Q7 35 20 33Q33 35 35 52Z" fill="currentColor" ${K}/><path d="M10 40Q20 33 30 40L30 44Q20 38 10 44Z" fill="#fff" stroke="#999" stroke-width=".6"/><g fill="#333"><circle cx="14" cy="42" r=".8"/><circle cx="20" cy="40.6" r=".8"/><circle cx="26" cy="42" r=".8"/></g>`;
+  const hd=`<circle cx="20" cy="23" r="8.2" fill="${sk}" stroke="#7a4b2a" stroke-width="1"/><circle cx="17" cy="22" r=".95" fill="#222"/><circle cx="23" cy="22" r=".95" fill="#222"/><path d="M17.5 27q2.5 1.8 5 0" fill="none" stroke="#7a4b2a" stroke-width=".9"/>`;
+  let f;
+  if(r===13)f=sh+hd+`<path d="M12 26Q20 44 28 26Q20 32 12 26Z" fill="#f4f4f4" stroke="#999" stroke-width=".7"/><path d="M9 15L11 4L17 10L20 2L23 10L29 4L31 15Z" ${gd}/><rect x="9" y="13" width="22" height="3.2" ${gd}/><circle cx="20" cy="6.5" r="1.3" fill="#d32f2f"/>`;
+  else if(r===12)f=sh+`<path d="M11 19Q6 33 13 39L14.5 25ZM29 19Q34 33 27 39L25.5 25Z" fill="currentColor" ${K}/>`+hd+`<path d="M11 15L13 7L17 11L20 5L23 11L27 7L29 15Z" ${gd}/><rect x="11" y="13.4" width="18" height="2.8" ${gd}/><circle cx="20" cy="8.5" r="1.1" fill="#d32f2f"/>`;
+  else f=sh+hd+`<path d="M9 17Q20 0 31 17Z" fill="currentColor" ${K}/><path d="M27 9Q39 2 36 16" stroke="#f2c230" fill="none" stroke-width="2.2" stroke-linecap="round"/><path d="M13 35L20 41L27 35" stroke="#fff" fill="none" stroke-width="2"/>`;
   return'<svg viewBox="0 0 40 52" aria-hidden="true">'+f+'</svg>';
 }
 function cardHTML(c,o={}){
