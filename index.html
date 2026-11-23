@@ -64,6 +64,8 @@ input{-webkit-user-select:text;user-select:text;width:100%;font-size:18px;paddin
 .card.k3{color:#2e7d32;background:#ebf8ee}
 .card .su{font-size:calc(var(--fs)*1.3)}
 .hand .card{touch-action:none;-webkit-touch-callout:none}
+.hand.cmp{gap:4px 0;padding-right:calc(6px + var(--cw)*.28)}
+.hand.cmp .card{margin-right:calc(var(--cw)*-.28)}
 .card.dropL{box-shadow:-5px 0 0 #80d8ff}
 .card.dropR{box-shadow:5px 0 0 #80d8ff}
 .card.sel{transform:translateY(-10px);box-shadow:0 0 0 3px #ffd54f}
@@ -378,7 +380,7 @@ async function botTurn(i,g){
 /*ENDENGINE*/
 
 /* ===== Interfaccia ===== */
-const VERSION='1.17.1',BUILD='23/11/2026';
+const VERSION='1.17.2',BUILD='23/11/2026';
 const TARGETV=[0,51,101,201];
 const OPT={size:4,rule:0,game:2,diff:1,spread:false,coach:false,net:'p2p',decks:2,cards:0,rl:{open:40,ace:0,pen:0,swap:true}};
 try{const o=JSON.parse(localStorage.getItem('scala40opt')||'{}');if(o.size>=0&&o.size<=4)OPT.size=o.size;if(o.rule>=0&&o.rule<=2)OPT.rule=o.rule;if(o.game>=0&&o.game<=3)OPT.game=o.game;if(o.diff>=0&&o.diff<=3)OPT.diff=o.diff;OPT.spread=o.spread===true;OPT.coach=o.coach===true;OPT.net=o.net==='mqtt'||o.net==='ntfy'?o.net:'p2p';OPT.decks=o.decks===3?3:2;OPT.cards=o.cards===1||o.cards===2?o.cards:0;if(o.rl){const r=o.rl;OPT.rl={open:r.open===51?51:40,ace:r.ace===1?1:0,pen:r.pen===1||r.pen===2?r.pen:0,swap:r.swap!==false};}}catch(e){}
@@ -439,7 +441,7 @@ function menuHTML(){
   <li><b>Se ti assenti o l'app si chiude</b> (telefonata, blocco schermo, ecc.): per qualche minuto l'app si ricollega da sola. Se la partita è ancora aperta dall'organizzatore, da Gioca online tocca «Rientra nella stanza» (l'app ricorda l'ultima stanza e il nome, ti chiede solo la parola d'accesso): riprendi il tuo posto con il punteggio attuale. Nel frattempo il computer gioca al posto tuo.</li>
   <li><b>Perché solo l'organizzatore può salvare</b>: la partita vive sul suo telefono (mazzo, mani, tavolo); gli altri ricevono solo la propria mano. L'organizzatore ha un salvataggio automatico a ogni turno, valido 30 giorni: se la sua app si chiude, da Gioca online → «Riprendi come organizzatore» riapre la stessa stanza (la mano in corso riparte dall'inizio del turno). Gli amici rientrano con «Rientra nella stanza». Se l'organizzatore cancella i dati del sito o il salvataggio scade, la partita è persa per tutti.</li><li><b>Collegamento</b>: «Diretto» va bene con lo stesso Wi-Fi; con la rete mobile (senza Wi-Fi) chi crea la stanza sceglie «MQTT» o «ntfy» (anche in Impostazioni → Online): passa da un servizio pubblico, i messaggi sono cifrati con la parola d'accesso (ntfy è più lento: aggiorna le mosse ogni qualche secondo). Il codice stanza è di 5 caratteri e inizia con M (MQTT) o N (ntfy): gli amici non devono scegliere nulla.</li></ul>
   <h3 style="margin:12px 0 2px">Comandi</h3><ul>
-  <li>Trascina le carte per riordinarle (se ne selezioni più d'una si spostano insieme); ⇅ le ordina; ↔ distanzia le carte sul tavolo.</li>
+  <li>Trascina le carte per riordinarle (se ne selezioni più d'una si spostano insieme); ⇅ le ordina; ↔ sovrappone o distanzia le carte (tavolo e mano).</li>
   <li>💡 (solo contro il computer) accende o spegne l'istruttore: quando è acceso (pulsante illuminato) ad ogni tuo passo suggerisce se pescare o prendere lo scarto, cosa calare, cosa attaccare e quale carta scartare, e segna le carte consigliate con un bordo tratteggiato. Decidi tu se seguirlo. Ritoccalo per spegnerlo.</li>
   <li>Con la regola classica, se hai preso lo scarto e non ti serve, ↩ lo rimette a posto.</li></ul>
   <button data-act="rules">Chiudi</button></div></div>`;
@@ -469,10 +471,10 @@ function gameHTML(){
    <div class="msg${G.err?' err':''}">${G.msg||''}</div>
   </div>${hint&&hint.text?`<div class="coach">${hint.text}</div>`:''}${pend}
   <div class="me${myTurn?' act':''}"><b>Tu</b>${me.opened?' ✓':''}<br><small>${me.hand.length} carte · ${me.score}${G.target?'/'+G.target:''} pt</small></div>
-  <div class="hand">${hand}</div>
+  <div class="hand${OPT.spread?'':' cmp'}">${hand}</div>
   <div class="btns">
    <button class="sec" data-act="sort" title="Ordina">⇅</button>
-   <button class="sec${OPT.spread?' on':''}" data-act="spread" title="Carte sul tavolo: sovrapposte o distanziate">↔</button>
+   <button class="sec${OPT.spread?' on':''}" data-act="spread" title="Carte (tavolo e mano): sovrapposte o distanziate">↔</button>
    ${can&&G.mustUse!==null&&!G.acted?'<button class="sec" data-act="putback" title="Rimetti lo scarto">↩</button>':''}
    ${!ON?`<button class="sec${OPT.coach?' on':''}" data-act="hint" title="Istruttore: acceso/spento">💡</button>`:''}
    <button data-act="lay" ${can&&G.sel.size>=3?'':'disabled'}>Cala</button>
